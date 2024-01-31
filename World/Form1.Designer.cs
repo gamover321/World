@@ -36,17 +36,19 @@
             // 
             // pictureBox1
             // 
-            pictureBox1.Location = new Point(-1, -2);
+            pictureBox1.Cursor = Cursors.Cross;
+            pictureBox1.Location = new Point(0, 0);
             pictureBox1.Name = "pictureBox1";
             pictureBox1.Size = new Size(1033, 692);
             pictureBox1.TabIndex = 0;
             pictureBox1.TabStop = false;
-            pictureBox1.Click += pictureBox1_Click;
+            pictureBox1.Click += pictureBox1_Click;            
+            
             // 
             // timer1
             // 
             timer1.Enabled = true;
-            timer1.Interval = 5;
+            timer1.Interval = 30;
             timer1.Tick += timer1_Tick;
             // 
             // Form1

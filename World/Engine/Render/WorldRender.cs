@@ -1,14 +1,17 @@
 ﻿using SkiaSharp;
 using System.Diagnostics;
+using System.Windows.Forms.VisualStyles;
+using World.Engine.My2dWorld.Primitives;
+using World.Engine.Render.Primitives;
 
 namespace World.Engine.Render
 {
-    public class Render
+    public class WorldRender
     {
         /// <summary>
         /// Кол-во желаемых кадров в секунду
         /// </summary>
-        private static int _fps => 60;
+        private static int _fps => 10;
 
         private TimeSpan _frameTime = TimeSpan.FromMilliseconds((double)1000 / _fps);
         private TimeSpan _nextFrameTime = TimeSpan.Zero;
@@ -19,11 +22,11 @@ namespace World.Engine.Render
         private Stopwatch _stopwatch;
 
         private SKImage CurrentFrame { get; set; }
+       
 
+        public Dictionary<PhysicsBaseEntity, BaseEntityRender> RenderDict = new();
 
-        List<SKImage> PrevFrames = new List<SKImage>(20);
-
-        public Render(My2dWorld.My2dWorld world)
+        public WorldRender(My2dWorld.My2dWorld world)
         {
             _world = world;
             _stopwatch = new Stopwatch();
@@ -44,18 +47,16 @@ namespace World.Engine.Render
                     var frameWasUpdated = await Tick();
                     if (frameWasUpdated)
                     {
-                        // Сохраняет пред. кадры
-                        //if (PrevFrames.Count >= 20)
-                        //{
-                        //    PrevFrames.RemoveAt(0);
-                        //}
-                        //PrevFrames.Add(GetPicture());
-
                         _frameRenderTime = stopwatch.Elapsed;
                         stopwatch.Restart();
                     }
                 }
             }, _cancellationTokenSource.Token);
+        }
+
+        public void ManualUpdate()
+        {
+            CurrentFrame = RenderWorld();
         }
 
         public void Stop()
@@ -65,6 +66,10 @@ namespace World.Engine.Render
 
         public SKImage GetPicture()
         {
+            if (CurrentFrame == null)
+            {
+                CurrentFrame = RenderWorld();
+            }
             return CurrentFrame;
         }
 
@@ -80,8 +85,6 @@ namespace World.Engine.Render
             if (_nextFrameTime <= _stopwatch.Elapsed)
             {
                 _stopwatch.Restart();
-
-                _world.Update();
 
                 CurrentFrame = RenderWorld();
 
@@ -110,33 +113,29 @@ namespace World.Engine.Render
 
             canvas.Clear(SKColor.Parse("#FFFFFF"));
 
-            //foreach (var prevFrame in PrevFrames)
-            //{
-            //    canvas.Dr(prevFrame);
-            //}
 
-            var x1 = _world.Position.X1;
-            var y1 = _world.Position.Y1;
-            var x2 = _world.Position.X2;
-            var y2 = _world.Position.Y2;
-            var x3 = _world.Position.X3;
-            var y3 = _world.Position.Y3;
-            var x4 = _world.Position.X4;
-            var y4 = _world.Position.Y4;
-
-            canvas.DrawLine(x1, y1, x2, y2, new SKPaint{Color = SKColor.Parse("#000000")});
-            canvas.DrawLine(x2, y2, x3, y3, new SKPaint { Color = SKColor.Parse("#000000") });
-            canvas.DrawLine(x3, y3, x4, y4, new SKPaint { Color = SKColor.Parse("#000000") });
-            canvas.DrawLine(x4, y4, x1, y1, new SKPaint { Color = SKColor.Parse("#000000") });
-
-            /*canvas.DrawCircle(_world.Position.X, _world.Position.Y, 10, new SKPaint
+            foreach (var worldEntity in _world.Entities)
             {
-                Color = SKColor.Parse("##003366")
-            });*/
+                var render = GetRender(worldEntity);
+                render.Render(canvas);
+            }
+
             var image = surface.Snapshot();
 
             return image;
         }
+
+        public BaseEntityRender GetRender(PhysicsBaseEntity entity)
+        {
+            if (!RenderDict.ContainsKey(entity))
+            {
+                RenderDict.Add(entity, new TrailEntityRender(entity));
+            }
+
+            return RenderDict[entity];
+        }
+
+        
 
         #endregion
 

@@ -3,31 +3,56 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml;
 
 namespace World.Engine.Vector;
 
 public class Vector
 {
-    public Vector(float x1, float y1, float x2, float y2)
+    public Vector(float x, float y)
     {
-        X1 = x1;
-        Y1 = y1;
-        X2 = x2;
-        Y2 = y2;
+        X = x;
+        Y = y;
     }
 
-    public float X1 { get; private set; } 
-    public float Y1 { get; private set; }
+    public float X { get; private set; } 
+    public float Y { get; private set; }
 
-    public float X2 { get; private set; }
-    public float Y2 { get; private set; }
+    public void Add(Vector another)
+    {
+        X += another.X;
+        Y += another.Y;
+    }
 
     public (double, double) GetMiddle()
     {
-        var x = (X2 - X1) / 2 + X1;
-        var y = (Y2 - Y1) / 2 + Y1;
+        var x = X / 2;
+        var y = Y / 2;
 
         return (x, y);
+    }
+
+    public void Normalize()
+    {
+        var dist = Math.Sqrt(X * X + Y * Y);
+        Mul(1/(float)dist);
+    }
+
+    public void Mul(float val)
+    {
+        X *= val;
+        Y *= val;
+    }
+
+    public float DistanceTo(Vector other)
+    {
+        var val = Math.Pow(other.X - X, 2) + Math.Pow(other.Y - Y, 2);
+        return (float)Math.Sqrt(val);
+    }
+
+    public Vector Copy()
+    {
+        return new Vector(X, Y);
     }
 
     public void Rotate(double angleDeg, double x, double y)
@@ -36,11 +61,16 @@ public class Vector
 
         var (sin, cos) = Math.SinCos(angleRad);
 
-        X1 = (float)((X1 - x) * cos - (Y1 - x) * sin + x);
-        Y1 = (float)((X1 - y) * sin + (Y1 - y) * cos + y);
+        var prevX = X;
+        var prevY = Y;
 
-        X2 = (float)((X2-x) * cos - (Y2-x) * sin + x);
-        Y2 = (float)((X2-y) * sin + (Y2-y) * cos + y);
+        X = (float)((prevX-x) * cos - (prevY-y) * sin +x);
+        Y = (float)((prevX-x) * sin + (prevY-y) * cos + y);
+    }
+
+    public static Vector Empty()
+    {
+        return new Vector(0, 0);
     }
 
     private double DegToRad(double deg)
