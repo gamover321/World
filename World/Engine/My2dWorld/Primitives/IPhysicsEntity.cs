@@ -1,20 +1,33 @@
-﻿namespace World.Engine.My2dWorld.Primitives;
+﻿using World.Engine.Primitives;
+
+namespace World.Engine.My2dWorld.Primitives;
 
 public interface IPhysicsEntity
 {
-    Vector.Vector Position { get; set; }
-    Vector.Vector Velocity { get; set; }
-    Vector.Vector Acceleration { get; set; }
-    float AngularPosition { get; set; }
-    float AngularVelocity { get; set; }
-    float AngularAcceleration { get; set; }
-    Vector.Vector[] Edges { get; set; }
-    void Update();
-    void SetSpeed(Vector.Vector vector);
-    void SetAngularSpeed(float speed);
-    void SetAngularAcceleration(float speed);
-    void Rotate();
-
-    void AddForce(string name, Vector.Vector vector);
-    void RemoveForce(string name);
+	MyVector Position { get; set; }
+	MyVector Speed { get; set; }
+	MyVector Acceleration { get; set; }
+	float Mass { get; set; }
+	float InverseMass { get; }
+	float AngularPosition { get; set; }
+	float AngularSpeed { get; set; }
+	float AngularAcceleration { get; set; }
+	float Inertia { get; }
+	float InverseInertia { get; }
+	Dictionary<string, MyVector> Forces { get; set; }
+	Dictionary<string, float> Torques { get; set; }
+	MyVector[] Edges { get; init; }
+	void Update();
+	void OnUpdate();
+	void AddForce(string name, MyVector myVector);
+	void RemoveForce(string name);
+	void AddTorque(string name, float torque);
+	void RemoveTorque(string name);
+	bool IsIntersect(PhysicsBaseEntity other);
+	float GetRadius();
+	List<MyVector> GetNormals();
+	MyVector[] GetTransformedEdges();
+	MyVector GetAcceleration();
+	float GetAngularAcceleration();
+	(float min, float max) ProjectOntoAxis(MyVector axis);
 }

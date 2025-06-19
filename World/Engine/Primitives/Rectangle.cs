@@ -16,19 +16,19 @@
 
         public Rectangle(float width, float height)
         {
-            V1 = new Vector.Vector(0, 0);
-            V2 = new Vector.Vector(width, 0);
-            V3 = new Vector.Vector(width, height);
-            V4 = new Vector.Vector(0, height);
+            V1 = new MyVector(0, 0);
+            V2 = new MyVector(width, 0);
+            V3 = new MyVector(width, height);
+            V4 = new MyVector(0, height);
         }
 
         //ToDo: вынести положение в пространстве в физический примитив, тут оставить только координаты относительно 0
-        public void Move(Vector.Vector vector)
+        public void Move(MyVector myVector)
         {
-            V1.Add(vector);
-            V2.Add(vector);
-            V3.Add(vector);
-            V4.Add(vector);
+            V1.Add(myVector);
+            V2.Add(myVector);
+            V3.Add(myVector);
+            V4.Add(myVector);
         }
 
         public void Rotate(double angleDeg, double x, double y)
@@ -39,9 +39,9 @@
             V4.Rotate(angleDeg, x, y);
         }
 
-        private Vector.Vector V1 { get; set; }
-        private Vector.Vector V2 { get; set; }
-        private Vector.Vector V3 { get; set; }
-        private Vector.Vector V4 { get; set; }
+        private MyVector V1 { get; set; }
+        private MyVector V2 { get; set; }
+        private MyVector V3 { get; set; }
+        private MyVector V4 { get; set; }
     }
 }

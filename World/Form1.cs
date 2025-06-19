@@ -3,6 +3,7 @@ using System.Windows.Forms;
 using SkiaSharp;
 using World.Engine.My2dWorld;
 using World.Engine.My2dWorld.Primitives;
+using World.Engine.Primitives;
 using World.Engine.Render;
 using World.Engine.Vector;
 
@@ -15,9 +16,7 @@ namespace World
         private WorldRender _worldRender;
 
         private bool _isRunning;
-
-
-
+		
         public Form1()
         {
             InitializeComponent();
@@ -50,7 +49,7 @@ namespace World
         private void timer1_Tick(object sender, EventArgs e)
         {
             var p = pictureBox1.PointToClient(Cursor.Position);
-            var mouseVec = new Vector(p.X, p.Y);
+            var mouseVec = new MyVector(p.X, p.Y);
 
             foreach (var entity in _world.Entities)
             {
@@ -69,12 +68,12 @@ namespace World
             Text = PrepareCaption();
         }
 
-        private void MoveToCursor(Vector mouseVec, PhysicsBaseEntity entity, float mul = 1)
+        private void MoveToCursor(MyVector mouseVec, PhysicsBaseEntity entity, float mul = 1)
         {
             var relX = mouseVec.X - entity.Position.X;
             var relY = mouseVec.Y - entity.Position.Y;
 
-            var acc = new Vector(relX, relY);
+            var acc = new MyVector(relX, relY);
             acc.Normalize();
 
             var mouseDist = entity.Position.DistanceTo(mouseVec);
@@ -90,7 +89,7 @@ namespace World
                 _world.RemoveCustomForce("cursor_force");
             }
 
-            entity.SetAngularAcceleration(acc.X);
+            //entity.SetAngularAcceleration(acc.X);
         }
 
         private string PrepareCaption()

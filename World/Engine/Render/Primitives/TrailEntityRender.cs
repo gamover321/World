@@ -7,21 +7,24 @@ namespace World.Engine.Render.Primitives
     {
         private PhysicsBaseEntity entity { get; set; }
 
-        private Queue<Vector.Vector> prevPositons { get; set; } = new();
+        private Queue<Engine.Primitives.MyVector> prevPositons { get; set; } = new();
+        private Queue<Engine.Primitives.MyVector> prevCollisionPoints { get; set; } = new();
 
-        public TrailEntityRender(PhysicsBaseEntity entity) : base(entity)
+		public TrailEntityRender(PhysicsBaseEntity entity) : base(entity)
         {
             this.entity = entity;
         }
 
         public override void Render(SKCanvas canvas)
         {
-            RenderPrevPositions(canvas);
-            //RenderCircleRadius(canvas);
+	        base.Render(canvas);
 
-            base.Render(canvas);
+			//RenderPrevPositions(canvas);
+            RenderPrevCollisions(canvas);
 
-            RenderAcceleration(canvas);
+			//RenderCircleRadius(canvas);
+            //RenderAcceleration(canvas);
+            RenderPosition(canvas);
         }
 
         private void RenderCircleRadius(SKCanvas canvas)
@@ -47,11 +50,26 @@ namespace World.Engine.Render.Primitives
                 });
         }
 
-        private void RenderPrevPositions(SKCanvas canvas)
+        private void RenderPosition(SKCanvas canvas)
         {
-            foreach (var positon in prevPositons)
+	        var text = $"{entity.Name}  {entity.Position.X} {entity.Position.Y}";
+	        canvas.DrawText(text, entity.Position.X, entity.Position.Y + entity.GetRadius(), new SKPaint()
+	        {
+		        Color = SKColor.Parse("#000000")
+	        });
+
+	        //canvas.DrawLine(entity.Position.X, entity.Position.Y,
+		    //    entity.Position.X + entity.Acceleration.X * 10000, entity.Position.Y + entity.Acceleration.Y * 10000, new SKPaint
+		    //    {
+			//        Color = SKColor.Parse("#FF00FF")
+		    //    });
+        }
+
+		private void RenderPrevPositions(SKCanvas canvas)
+        {
+            foreach (var position in prevPositons)
             {
-                canvas.DrawCircle(positon.X, positon.Y, 5, new SKPaint
+                canvas.DrawCircle(position.X, position.Y, 5, new SKPaint
                 {
                     Color = SKColor.Parse("#003366")
                 });
@@ -62,5 +80,26 @@ namespace World.Engine.Render.Primitives
                 prevPositons.Dequeue();
             }
         }
-    }
+
+        private void RenderPrevCollisions(SKCanvas canvas)
+        {
+	        foreach (var prevPoint in prevCollisionPoints)
+	        {
+		        canvas.DrawCircle(prevPoint.X, prevPoint.Y, 3, new SKPaint
+		        {
+			        Color = SKColor.Parse("#000000")
+		        });
+	        }
+
+	        foreach (var point in entity.CollisionPoints)
+	        {
+		        prevCollisionPoints.Enqueue(point.Copy());
+			}
+			
+			if (prevCollisionPoints.Count > 100)
+	        {
+		        prevCollisionPoints.Dequeue();
+	        }
+        }
+	}
 }

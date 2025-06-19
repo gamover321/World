@@ -1,6 +1,5 @@
 ﻿using SkiaSharp;
 using System.Diagnostics;
-using System.Windows.Forms.VisualStyles;
 using World.Engine.My2dWorld.Primitives;
 using World.Engine.Render.Primitives;
 
@@ -11,7 +10,7 @@ namespace World.Engine.Render
         /// <summary>
         /// Кол-во желаемых кадров в секунду
         /// </summary>
-        private static int _fps => 10;
+        private static int _fps => 30;
 
         private TimeSpan _frameTime = TimeSpan.FromMilliseconds((double)1000 / _fps);
         private TimeSpan _nextFrameTime = TimeSpan.Zero;
@@ -113,8 +112,7 @@ namespace World.Engine.Render
 
             canvas.Clear(SKColor.Parse("#FFFFFF"));
 
-
-            foreach (var worldEntity in _world.Entities)
+			foreach (var worldEntity in _world.Entities)
             {
                 var render = GetRender(worldEntity);
                 render.Render(canvas);
