@@ -12,12 +12,12 @@ public class PhysicsRectangle : PhysicsBaseEntity
 		Width = width;
 		Height = height;
 
-		Edges = new[]
+		Points = new[]
 		{
-			new Engine.Primitives.MyVector(-width/2, -height/2),
-			new Engine.Primitives.MyVector(width/2, -height/2),
-			new Engine.Primitives.MyVector(width / 2, height/2),
-			new Engine.Primitives.MyVector(-width/2, height/2)
+			new MyVector(-width/2, -height/2),
+			new MyVector(width/2, -height/2),
+			new MyVector(width / 2, height/2),
+			new MyVector(-width/2, height/2)
 		};
 
 		// формула для прямоугольников
@@ -46,7 +46,7 @@ public class PhysicsRectangle : PhysicsBaseEntity
 	public override bool IsIntersectWithMTV(PhysicsBaseEntity other, out MyVector mtvNormal, out float penetrationDepth)
 	{
 		float minOverlap = float.MaxValue;
-		Engine.Primitives.MyVector smallestAxis = null;
+		MyVector smallestAxis = null;
 
 		var axes = GetNormals().Concat(other.GetNormals());
 

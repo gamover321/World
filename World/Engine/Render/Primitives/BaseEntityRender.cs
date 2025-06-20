@@ -22,7 +22,7 @@ public class BaseEntityRender : IEntityRender
 		float? prevX = null;
 		float? prevY = null;
 
-		var transformedEdges = entity.GetTransformedEdges();
+		var transformedEdges = entity.GetTransformedPoints();
 		
 		foreach (var edge in transformedEdges)
 		{

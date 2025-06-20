@@ -35,7 +35,6 @@ namespace World.Engine.Render
         {
             _cancellationTokenSource = new CancellationTokenSource();
 
-
             Task.Run(async () =>
             {
                 var stopwatch = new Stopwatch();

@@ -25,6 +25,8 @@ namespace World.Engine.Render.Primitives
 			//RenderCircleRadius(canvas);
             //RenderAcceleration(canvas);
             RenderPosition(canvas);
+            RenderNormals(canvas);
+
         }
 
         private void RenderCircleRadius(SKCanvas canvas)
@@ -35,7 +37,21 @@ namespace World.Engine.Render.Primitives
             });
         }
 
-        private void RenderAcceleration(SKCanvas canvas)
+        private void RenderNormals(SKCanvas canvas)
+        {
+
+	        var normals = entity.GetNormals();
+	        foreach (var normal in normals)
+	        {
+				canvas.DrawLine(entity.Position.X, entity.Position.Y,
+					entity.Position.X + normal.X * 30, entity.Position.Y + normal.Y*30, new SKPaint
+					{
+						Color = SKColor.Parse("#FF00FF")
+					});
+			}
+        }
+
+		private void RenderAcceleration(SKCanvas canvas)
         {
             var text = $"{entity.Acceleration.X:0.0} {entity.Acceleration.Y:0:0}";
             canvas.DrawText(text, entity.Position.X, entity.Position.Y - entity.GetRadius(), new SKPaint()

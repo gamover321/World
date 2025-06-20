@@ -16,7 +16,7 @@ public interface IPhysicsEntity
 	float InverseInertia { get; }
 	Dictionary<string, MyVector> Forces { get; set; }
 	Dictionary<string, float> Torques { get; set; }
-	MyVector[] Edges { get; init; }
+	MyVector[] Points { get; init; }
 	void Update();
 	void OnUpdate();
 	void AddForce(string name, MyVector myVector);
@@ -26,7 +26,7 @@ public interface IPhysicsEntity
 	bool IsIntersect(PhysicsBaseEntity other);
 	float GetRadius();
 	List<MyVector> GetNormals();
-	MyVector[] GetTransformedEdges();
+	MyVector[] GetTransformedPoints();
 	MyVector GetAcceleration();
 	float GetAngularAcceleration();
 	(float min, float max) ProjectOntoAxis(MyVector axis);

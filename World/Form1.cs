@@ -10,107 +10,126 @@ using World.Engine.Vector;
 
 namespace World
 {
-    public partial class Form1 : Form
-    {
-        private My2dWorld _world;
-        private WorldRender _worldRender;
+	public partial class Form1 : Form
+	{
+		private My2dWorld _world;
+		private WorldRender _worldRender;
 
-        private bool _isRunning;
-		
-        public Form1()
-        {
-            InitializeComponent();
+		private bool _isRunning;
 
-            _world = new My2dWorld(pictureBox1.Width, pictureBox1.Height);
-            _world.Start();
+		public Form1()
+		{
+			InitializeComponent();
 
-            _worldRender = new WorldRender(_world);
+			_world = new My2dWorld(pictureBox1.Width, pictureBox1.Height);
+			//_world.Start();
 
-            _worldRender.Start();
-            _isRunning = true;
-        }
+			_worldRender = new WorldRender(_world);
 
-        private void pictureBox1_Click(object sender, EventArgs e)
-        {
-            
-            if (_isRunning)
-            {
-                //_world.Stop();
-                _isRunning = false;
-            }
-            else
-            {
-                //_world.Start();
-               _isRunning = true;
-            }
-            
-        }
+			_worldRender.Start();
+			_isRunning = true;
+		}
 
-        private void timer1_Tick(object sender, EventArgs e)
-        {
-            var p = pictureBox1.PointToClient(Cursor.Position);
-            var mouseVec = new MyVector(p.X, p.Y);
+		private void pictureBox1_Click(object sender, EventArgs e)
+		{
 
-            foreach (var entity in _world.Entities)
-            {
-                MoveToCursor(mouseVec, entity);
-            }
+			if (_isRunning)
+			{
+				//_world.Stop();
+				_isRunning = false;
+			}
+			else
+			{
+				//_world.Start();
+				_isRunning = true;
+			}
 
-            var image = _worldRender.GetPicture();
+		}
 
-            using (SKData data = image.Encode())
-            using (System.IO.MemoryStream mStream = new System.IO.MemoryStream(data.ToArray()))
-            {
-                pictureBox1.Image?.Dispose();
-                pictureBox1.Image = new Bitmap(mStream, false);
-            }
+		private void timer1_Tick(object sender, EventArgs e)
+		{
+			var p = pictureBox1.PointToClient(Cursor.Position);
+			var mouseVec = new MyVector(p.X, p.Y);
 
-            Text = PrepareCaption();
-        }
+			foreach (var entity in _world.Entities)
+			{
+				MoveToCursor(mouseVec, entity);
+			}
 
-        private void MoveToCursor(MyVector mouseVec, PhysicsBaseEntity entity, float mul = 1)
-        {
-            var relX = mouseVec.X - entity.Position.X;
-            var relY = mouseVec.Y - entity.Position.Y;
+			var image = _worldRender.GetPicture();
 
-            var acc = new MyVector(relX, relY);
-            acc.Normalize();
+			using (SKData data = image.Encode())
+			using (System.IO.MemoryStream mStream = new System.IO.MemoryStream(data.ToArray()))
+			{
+				pictureBox1.Image?.Dispose();
+				pictureBox1.Image = new Bitmap(mStream, false);
+			}
 
-            var mouseDist = entity.Position.DistanceTo(mouseVec);
-            acc.Mul((float)Math.Pow(0.00001f * mouseDist, 0.5));
-            acc.Mul(mul);
+			Text = PrepareCaption();
+		}
 
-            if (!_isRunning)
-            {
-                _world.AddCustomForce("cursor_force", acc, entity);
-            }
-            else
-            {
-                _world.RemoveCustomForce("cursor_force");
-            }
+		private void MoveToCursor(MyVector mouseVec, PhysicsBaseEntity entity, float mul = 1)
+		{
+			var relX = mouseVec.X - entity.Position.X;
+			var relY = mouseVec.Y - entity.Position.Y;
 
-            //entity.SetAngularAcceleration(acc.X);
-        }
+			var acc = new MyVector(relX, relY);
+			acc.Normalize();
 
-        private string PrepareCaption()
-        {
-            var actualFps = _worldRender.GetFps();
-            var text = $"{actualFps:00}";
+			var mouseDist = entity.Position.DistanceTo(mouseVec);
+			acc.Mul((float)Math.Pow(0.00001f * mouseDist, 0.5));
+			acc.Mul(mul);
 
-            var p = pictureBox1.PointToClient(Cursor.Position);
+			if (!_isRunning)
+			{
+				_world.AddCustomForce("cursor_force", acc, entity);
+			}
+			else
+			{
+				_world.RemoveCustomForce("cursor_force");
+			}
 
-            text += $" ({p.X}, {p.Y})";
+			//entity.SetAngularAcceleration(acc.X);
+		}
 
-            text += $" W:{_world.CurrentStep} ({_world.GetFps()} - {_world.WorldTime.TotalSeconds:0})";
+		private string PrepareCaption()
+		{
+			var actualFps = _worldRender.GetFps();
+			var text = $"{actualFps:00}";
 
-            return text;
-        }
+			var p = pictureBox1.PointToClient(Cursor.Position);
+
+			text += $" ({p.X}, {p.Y})";
+
+			text += $" Step:{_world.CurrentStep} ({_world.GetFps()} fps - {_world.WorldTime.TotalSeconds:0} sec)";
+
+			return text;
+		}
 
 
 
-        private void Form1_Load(object sender, EventArgs e)
-        {
+		private void Form1_Load(object sender, EventArgs e)
+		{
 
-        }
-    }
+		}
+
+		private void button1_Click(object sender, EventArgs e)
+		{
+			_world.ManualUpdate();
+		}
+
+		private void button2_Click(object sender, EventArgs e)
+		{
+			if (!_world.IsRunning)
+			{
+				_world.Start();
+				button2.Text = "Stop";
+			}
+			else
+			{
+				_world.Stop();
+				button2.Text = "Start";
+			}
+		}
+	}
 }

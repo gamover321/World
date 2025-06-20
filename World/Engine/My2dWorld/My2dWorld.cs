@@ -13,9 +13,10 @@ public class My2dWorld
 	private TimeSpan _stepCalcTime = TimeSpan.Zero;
 
 	private CancellationTokenSource _cancellationTokenSource;
-	private Stopwatch _stepStopwatch;
-	private Stopwatch _globalTimeStopwatch { get; set; }
+	private Stopwatch _stepStopwatch = Stopwatch.StartNew();
+	private Stopwatch _globalTimeStopwatch { get; set; } = new();
 
+	public bool IsRunning { get; set; }
 	public int CurrentStep { get; private set; } = 0;
 	public TimeSpan WorldTime => _globalTimeStopwatch.Elapsed;
 
@@ -27,6 +28,7 @@ public class My2dWorld
 	private Dictionary<IPhysicsEntity, Dictionary<string, MyVector>> CustomForces { get; set; } = new();
 
 	public List<PhysicsBaseEntity> Entities { get; set; }
+
 
 	public My2dWorld(int width, int height)
 	{
@@ -49,30 +51,33 @@ public class My2dWorld
 		}
 		*/
 
-		var x = new PhysicsRectangle(200, 300, 50, 50, 500)
+		var x = new PhysicsRectangle(200, 300, 50, 50, 1)
 		{
 			Name = "x"
 		};
+		x.Speed = new MyVector(1, 0);
 
-		var y = new PhysicsRectangle(400, 380, 50, 150, 1);
+		var y = new PhysicsRectangle(400, 330, 50, 50, 1);
 		y.Name = "y";
+		y.Speed = new MyVector(-1, 0);
 
-		var z = new PhysicsRectangle(800, 300, 50, 50, 1);
+		var z = new PhysicsRectangle(800, 300, 50, 50, 3);
 		z.Name = "z";
+		z.Speed = new MyVector(-2, 0);
 
-		var top = new PhysicsRectangle(400, 150, 30, 30, 1);
+		var top = new PhysicsRectangle(330, 150, 30, 30, 1);
 		top.Name = "top";
+		top.Speed = new MyVector(0, 0.7f);
 
-		x.Speed= new MyVector(1, 0);
 		//x.AngularSpeed = (float)0.001;
 
-		y.Speed = new MyVector(-1, 0);
-		top.Speed = new MyVector(0, 2);
+
+
 
 		Entities.Add(x);
 		Entities.Add(y);
-		//Entities.Add(z);
-		//Entities.Add(top);
+		Entities.Add(z);
+		Entities.Add(top);
 
 		//AddCustomForce("gravity",new MyVector.MyVector(0, 0.005f));
 	}
@@ -90,6 +95,8 @@ public class My2dWorld
 
 				_globalTimeStopwatch = new Stopwatch();
 				_globalTimeStopwatch.Start();
+
+				IsRunning = true;
 				while (!_cancellationTokenSource.Token.IsCancellationRequested)
 				{
 					var frameWasUpdated = Tick();
@@ -111,6 +118,17 @@ public class My2dWorld
 	{
 		_cancellationTokenSource.Cancel();
 		_globalTimeStopwatch.Stop();
+
+		IsRunning = false;
+	}
+
+	public void ManualUpdate()
+	{
+		var frameWasUpdated = Tick();
+		if (frameWasUpdated)
+		{
+			CurrentStep++;
+		}
 	}
 
 	public void AddCustomForce(string name, MyVector force, IPhysicsEntity? applyTo = null)
@@ -196,6 +214,11 @@ public class My2dWorld
 		ResolveCollisions();
 	}
 
+	public int GetFps()
+	{
+		return (int)(1000 / _stepCalcTime.TotalMilliseconds);
+	}
+
 	private void ResolveCollisions()
 	{
 		for (var i = 0; i < Entities.Count; i++)
@@ -205,7 +228,7 @@ public class My2dWorld
 				var a = Entities[i];
 				var b = Entities[j];
 
-				var collisionInfo = b.GetCollisionInfo(a);
+				var collisionInfo = a.GetCollisionInfo(b);
 				if (!collisionInfo.Intersects)
 				{
 					continue;
@@ -230,12 +253,12 @@ public class My2dWorld
 
 				if (a.InverseMass > 0)
 				{
-					a.Position += correction * a.InverseMass;
+					a.Position -= correction * a.InverseMass;
 				}
 
 				if (b.InverseMass > 0)
 				{
-					b.Position -= correction * b.InverseMass;
+					b.Position += correction * b.InverseMass;
 				}
 
 				var ra = new MyVector(contactPoint.X - a.Position.X, contactPoint.Y - a.Position.Y);
@@ -252,7 +275,7 @@ public class My2dWorld
 				var relativeVelocity = new MyVector(va.X - vb.X, va.Y - vb.Y);
 
 				var velAlongNormal = relativeVelocity.ScalarMul(normal);
-				if (velAlongNormal > 0)
+				if (velAlongNormal < 0)
 				{
 					continue;
 				}
@@ -283,37 +306,6 @@ public class My2dWorld
 				b.AddTorque("contact", angularAccelerationB);
 			}
 		}
-	}
-
-
-	private MyVector EstimateContactPoint(PhysicsBaseEntity a, PhysicsBaseEntity b, MyVector normal)
-	{
-		var aVerts = a.GetTransformedEdges();
-		var bVerts = b.GetTransformedEdges();
-
-		var minDist = float.MaxValue;
-		MyVector best = default;
-
-		foreach (var va in aVerts)
-		{
-			foreach (var vb in bVerts)
-			{
-				var dist = (va.Sub(vb)).LengthSquared();
-				if (dist < minDist)
-				{
-					minDist = dist;
-					best = va.Add(vb).Mul((float)0.5);
-				}
-			}
-		}
-
-		return best;
-	}
-
-
-	public int GetFps()
-	{
-		return (int)(1000 / _stepCalcTime.TotalMilliseconds);
 	}
 
 	/// <summary>

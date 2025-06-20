@@ -31,7 +31,12 @@ public class MyVector
         return (x, y);
     }
 
-    public MyVector Normalize()
+	public MyVector GetNormal()
+	{
+		return new MyVector(-Y, X).Normalize();
+	}
+
+	public MyVector Normalize()
     {
         var dist = Math.Sqrt(X * X + Y * Y);
         return Mul(1/(float)dist);

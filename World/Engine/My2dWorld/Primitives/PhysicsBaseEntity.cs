@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Windows.Forms.VisualStyles;
 using World.Engine.My2dWorld.Collisions;
 using World.Engine.Primitives;
 
@@ -29,7 +30,7 @@ public abstract class PhysicsBaseEntity : IPhysicsEntity
 	public Dictionary<string, MyVector> Forces { get; set; } = new();
 	public Dictionary<string, float> Torques { get; set; } = new();
 
-	public MyVector[] Edges { get; init; }
+	public MyVector[] Points { get; init; }
 	public List<MyVector> CollisionPoints { get; set; } = new();
 
 	#endregion
@@ -83,7 +84,7 @@ public abstract class PhysicsBaseEntity : IPhysicsEntity
 	public float GetRadius()
 	{
 		var r = 0f;
-		foreach (var edge in Edges)
+		foreach (var edge in Points)
 		{
 			var edgeLength = edge.DistanceTo(MyVector.Empty());
 			if (r < edgeLength)
@@ -95,33 +96,42 @@ public abstract class PhysicsBaseEntity : IPhysicsEntity
 	public List<MyVector> GetNormals()
 	{
 		var normals = new List<MyVector>();
-		var edges = GetTransformedEdges();
+		var edges = GetTransformedEdges(); // edges — уже векторы рёбер
 
-		for (int i = 0; i < edges.Length; i++)
+		for (var i = 0; i < edges.Length; i++)
 		{
-			var p1 = edges[i];
-			var p2 = edges[(i + 1) % edges.Length];
-
-			var edge = p2.Sub(p1);
-
-			var normal = new MyVector(-edge.Y, edge.X);
-			normal.Normalize();
-
+			var edge = edges[i];
+			var normal = edge.GetNormal().Normalize();
 			normals.Add(normal);
 		}
+
 		return normals;
 	}
 
 	public MyVector[] GetTransformedEdges()
 	{
-		var transformed = new MyVector[Edges.Length];
+		var points = GetTransformedPoints();
+		var edges = new MyVector[points.Length];
+
+		for (int i = 0; i < points.Length; i++)
+		{
+			var nextIndex = (i + 1) % points.Length;
+			edges[i] = points[nextIndex].Sub(points[i]);
+		}
+
+		return edges;
+	}
+
+	public MyVector[] GetTransformedPoints()
+	{
+		var transformed = new MyVector[Points.Length];
 
 		var cos = (float)Math.Cos(AngularPosition);
 		var sin = (float)Math.Sin(AngularPosition);
 
-		for (var i = 0; i < Edges.Length; i++)
+		for (var i = 0; i < Points.Length; i++)
 		{
-			var local = Edges[i];
+			var local = Points[i];
 
 			var rotatedX = local.X * cos - local.Y * sin;
 			var rotatedY = local.X * sin + local.Y * cos;
@@ -160,14 +170,14 @@ public abstract class PhysicsBaseEntity : IPhysicsEntity
 
 	public (float min, float max) ProjectOntoAxis(MyVector axis)
 	{
-		var edges = GetTransformedEdges();
+		var globalPoints = GetTransformedPoints();
 
-		var min = axis.ScalarMul(edges[0]);
+		var min = axis.ScalarMul(globalPoints[0]);
 		var max = min;
 
-		for (int i = 1; i < edges.Length; i++)
+		for (int i = 1; i < globalPoints.Length; i++)
 		{
-			var proj = axis.ScalarMul(edges[i]);
+			var proj = axis.ScalarMul(globalPoints[i]);
 			if (proj < min) min = proj;
 			if (proj > max) max = proj;
 		}
@@ -179,15 +189,13 @@ public abstract class PhysicsBaseEntity : IPhysicsEntity
 	{
 		var axes = GetNormals().Concat(other.GetNormals());
 
-		float minPenetration = float.MaxValue;
+		var minPenetration = float.MaxValue;
 		MyVector smallestAxis = null;
 
 		foreach (var axis in axes)
 		{
-			var normAxis = axis; // <--- нормализуем до проекции ?? убрал
-
-			var (minA, maxA) = ProjectOntoAxis(normAxis);
-			var (minB, maxB) = other.ProjectOntoAxis(normAxis);
+			var (minA, maxA) = ProjectOntoAxis(axis);
+			var (minB, maxB) = other.ProjectOntoAxis(axis);
 
 			float overlap = Math.Min(maxA, maxB) - Math.Max(minA, minB);
 			if (overlap < 0)
@@ -198,7 +206,7 @@ public abstract class PhysicsBaseEntity : IPhysicsEntity
 			if (overlap < minPenetration)
 			{
 				minPenetration = overlap;
-				smallestAxis = normAxis; // <--- сохраняем нормализованную ось
+				smallestAxis = axis; // <--- сохраняем нормализованную ось
 			}
 		}
 
@@ -224,56 +232,92 @@ public abstract class PhysicsBaseEntity : IPhysicsEntity
 		};
 	}
 
-
-
 	private MyVector GetContactPoint(PhysicsBaseEntity other, MyVector normal)
 	{
-		var edgesA = GetTransformedEdges();
-		var edgesB = other.GetTransformedEdges();
+		normal = normal.Normalize();
 
-		const float epsilon = 0.01f; // чуть больше для стабильности
+		var pointsA = GetTransformedPoints();
+		var pointsB = other.GetTransformedPoints();
 
+		// Касательный вектор — перпендикуляр к нормали
+		var tangent = new MyVector(normal.Y, -normal.X);
+
+		const float epsilon = 0.01f;
+
+		// Проекция на нормаль, чтобы выбрать крайние точки
 		float minProjA = float.MaxValue;
-		List<MyVector> contactCandidatesA = new();
+		List<MyVector> candidatesA = new();
 
-		foreach (var v in edgesA)
+		foreach (var v in pointsA)
 		{
 			float proj = v.ScalarMul(normal);
 			if (proj < minProjA - epsilon)
 			{
 				minProjA = proj;
-				contactCandidatesA.Clear();
-				contactCandidatesA.Add(v);
+				candidatesA.Clear();
+				candidatesA.Add(v);
 			}
 			else if (Math.Abs(proj - minProjA) <= epsilon)
 			{
-				contactCandidatesA.Add(v);
+				candidatesA.Add(v);
 			}
 		}
 
-		float maxProjB = float.MinValue;
-		List<MyVector> contactCandidatesB = new();
+		// Среди кандидатов выбираем по касательной
+		MyVector bestA = candidatesA[0];
+		float bestTangentProjA = bestA.ScalarMul(tangent);
 
-		foreach (var v in edgesB)
+		foreach (var v in candidatesA)
+		{
+			float tangentProj = v.ScalarMul(tangent);
+			// Выбираем точку с минимальной (или максимальной — зависит от направления) касательной проекцией
+			if (tangentProj < bestTangentProjA)
+			{
+				bestTangentProjA = tangentProj;
+				bestA = v;
+			}
+		}
+
+		// Аналогично для B (берём максимальную проекцию по нормали)
+		float maxProjB = float.MinValue;
+		List<MyVector> candidatesB = new();
+
+		foreach (var v in pointsB)
 		{
 			float proj = v.ScalarMul(normal);
 			if (proj > maxProjB + epsilon)
 			{
 				maxProjB = proj;
-				contactCandidatesB.Clear();
-				contactCandidatesB.Add(v);
+				candidatesB.Clear();
+				candidatesB.Add(v);
 			}
 			else if (Math.Abs(proj - maxProjB) <= epsilon)
 			{
-				contactCandidatesB.Add(v);
+				candidatesB.Add(v);
 			}
 		}
 
-		var avgA = AverageVector(contactCandidatesA);
-		var avgB = AverageVector(contactCandidatesB);
+		MyVector bestB = candidatesB[0];
+		float bestTangentProjB = bestB.ScalarMul(tangent);
 
-		return new MyVector((avgA.X + avgB.X) / 2, (avgA.Y + avgB.Y) / 2);
+		foreach (var v in candidatesB)
+		{
+			float tangentProj = v.ScalarMul(tangent);
+			if (tangentProj > bestTangentProjB) // обычно для другой стороны выбираем max
+			{
+				bestTangentProjB = tangentProj;
+				bestB = v;
+			}
+		}
+
+		// Средняя точка контакта
+		return new MyVector(
+			(bestA.X + bestB.X) / 2f,
+			(bestA.Y + bestB.Y) / 2f
+		);
 	}
+
+
 
 
 	private MyVector AverageVector(List<MyVector> vectors)
@@ -287,4 +331,93 @@ public abstract class PhysicsBaseEntity : IPhysicsEntity
 		int count = vectors.Count;
 		return new MyVector(x / count, y / count);
 	}
+
+	public static CollisionInfo GetCollisionInfo(PhysicsBaseEntity a, PhysicsBaseEntity b)
+	{
+		var axes = a.GetNormals().Concat(b.GetNormals());
+
+		float minPenetration = float.MaxValue;
+		MyVector smallestAxis = default;
+
+		foreach (var axis in axes)
+		{
+			var normAxis = axis.Normalize();
+
+			var (minA, maxA) = a.ProjectOntoAxis(normAxis);
+			var (minB, maxB) = b.ProjectOntoAxis(normAxis);
+
+			float overlap = Math.Min(maxA, maxB) - Math.Max(minA, minB);
+			if (overlap < 0)
+			{
+				return new CollisionInfo { Intersects = false };
+			}
+
+			if (overlap < minPenetration)
+			{
+				minPenetration = overlap;
+				smallestAxis = normAxis;
+			}
+		}
+
+		if (smallestAxis == null)
+			return new CollisionInfo { Intersects = false };
+
+		var direction = b.Position - a.Position;
+		if (smallestAxis.ScalarMul(direction) < 0)
+		{
+			smallestAxis = smallestAxis*-1;
+		}
+
+		var contactPoint = GetContactPoint(a, b, smallestAxis);
+
+		return new CollisionInfo
+		{
+			Intersects = true,
+			Normal = smallestAxis,
+			Penetration = minPenetration,
+			ContactPoint = contactPoint
+		};
+	}
+
+	public static MyVector GetContactPoint(PhysicsBaseEntity a, PhysicsBaseEntity b, MyVector normal)
+	{
+		var aVertices = a.GetTransformedPoints();
+		var bVertices = b.GetTransformedPoints();
+
+		// Найдём вершину объекта A, которая ближе всех вдоль нормали к B
+		MyVector bestA = aVertices[0];
+		float minA = bestA.ScalarMul(normal);
+
+		foreach (var v in aVertices)
+		{
+			float proj = v.ScalarMul(normal);
+			if (proj < minA)
+			{
+				minA = proj;
+				bestA = v;
+			}
+		}
+
+		// Найдём вершину объекта B, которая ближе всех вдоль обратной нормали к A
+		MyVector bestB = bVertices[0];
+		float maxB = bestB.ScalarMul(normal);
+
+		foreach (var v in bVertices)
+		{
+			float proj = v.ScalarMul(normal);
+			if (proj > maxB)
+			{
+				maxB = proj;
+				bestB = v;
+			}
+		}
+
+		// Вернём среднюю точку — компромисс
+		return new MyVector(
+			(bestA.X + bestB.X) / 2f,
+			(bestA.Y + bestB.Y) / 2f
+		);
+	}
+
+
 }
