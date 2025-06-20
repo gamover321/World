@@ -51,30 +51,38 @@ public class My2dWorld
 		}
 		*/
 
-		var x = new PhysicsRectangle(200, 300, 50, 50, 1)
+		var xl = new PhysicsRectangle(200, 300, 50, 50, 3)
 		{
-			Name = "x"
+			Name = "x-left"
 		};
-		x.Speed = new MyVector(1, 0);
+		xl.Velocity = new MyVector(1, 0);
 
-		var y = new PhysicsRectangle(400, 330, 50, 50, 1);
+		var xr = new PhysicsRectangle(600, 470, 50, 50, 3)
+		{
+			Name = "x-right"
+		};
+		xr.Velocity = new MyVector(-1, 0);
+
+		var y = new PhysicsRectangle(400, 390, 50, 150, 1);
 		y.Name = "y";
-		y.Speed = new MyVector(-1, 0);
+		
+		//y.Velocity = new MyVector(-1, 0);
 
 		var z = new PhysicsRectangle(800, 300, 50, 50, 3);
 		z.Name = "z";
-		z.Speed = new MyVector(-2, 0);
+		z.Velocity = new MyVector(-2, 0);
 
 		var top = new PhysicsRectangle(330, 150, 30, 30, 1);
 		top.Name = "top";
-		top.Speed = new MyVector(0, 0.7f);
+		top.Velocity = new MyVector(0, 0.7f);
 
-		//x.AngularSpeed = (float)0.001;
-
-
+		//x.AngularVelocity = (float)0.001;
 
 
-		Entities.Add(x);
+
+
+		Entities.Add(xl);
+		Entities.Add(xr);
 		Entities.Add(y);
 		Entities.Add(z);
 		Entities.Add(top);
@@ -194,24 +202,39 @@ public class My2dWorld
 		}
 	}
 
-	public void Update()
+	void Update(float dt)
 	{
+		// 1. Очистка сил
 		foreach (var entity in Entities)
 		{
-			if (CustomForces.TryGetValue(entity, out var entityForces))
-			{
-				foreach (var force in entityForces)
-					entity.AddForce(force.Key, force.Value);
-			}
-
-			entity.Update();
-
-
 			entity.Forces.Clear();
-			//entity.CollisionPoints.Clear();
+			//entity.ApplyGravity(); // Если есть
 		}
 
-		ResolveCollisions();
+		// 2. Обработка столкновений
+		ResolveCollisions(dt);
+
+		// 3. Интегрирование
+		foreach (var entity in Entities)
+		{
+			if (entity.IsStatic) continue;
+
+			// a = F/m
+			var totalForce = MyVector.Empty();
+			foreach (var force in entity.Forces.Values)
+			{
+				totalForce += force;
+			}
+
+			MyVector acceleration = totalForce * entity.InverseMass;
+			entity.Velocity += acceleration * dt;
+			entity.Position += entity.Velocity * dt;
+
+			// Угловое ускорение
+			float angularAcceleration = entity.Torques.Select(i=>i.Value).Sum() / entity.Inertia;
+			entity.AngularVelocity += angularAcceleration * dt;
+			entity.AngularPosition += entity.AngularVelocity * dt;
+		}
 	}
 
 	public int GetFps()
@@ -219,91 +242,81 @@ public class My2dWorld
 		return (int)(1000 / _stepCalcTime.TotalMilliseconds);
 	}
 
-	private void ResolveCollisions()
+	private void ResolveCollisions(float dt)
+	{
+		const float positionPercent = 0.01f; // Уменьшил для меньшего "засасывания"
+		const float slop = 0.001f;         // Более точный допуск
+		const float restitution = 0.0f;     // Небольшая упругость
+
+		foreach (var (a, b) in GetCollidingPairs())
+		{
+			var collision = a.GetCollisionInfo(b);
+			if (!collision.Intersects) continue;
+
+			a.CollisionPoints.Add(collision.ContactPoint);
+
+			var normal = collision.Normal;
+			var penetration = collision.Penetration;
+			var contact = collision.ContactPoint;
+
+			// 1. Проверка направления нормали (должна быть от B к A)
+			MyVector centerToContact = contact - b.Position;
+			if (normal.Dot(centerToContact) < 0)
+			{
+				normal = new MyVector(-normal.X, -normal.Y);
+			}
+
+			// 2. Позиционная коррекция
+			float totalCorrection = Math.Max(penetration - slop, 0f) * positionPercent;
+			float massSum = 1f / (a.InverseMass + b.InverseMass);
+			MyVector correction = normal * totalCorrection;
+
+			if (!a.IsStatic) a.Position += correction * a.InverseMass * massSum;
+			if (!b.IsStatic) b.Position -= correction * b.InverseMass * massSum;
+
+			// 3. Расчет импульса
+			MyVector ra = contact - a.Position;
+			MyVector rb = contact - b.Position;
+
+			MyVector va = a.Velocity + new MyVector(-a.AngularVelocity * ra.Y, a.AngularVelocity * ra.X);
+			MyVector vb = b.Velocity + new MyVector(-b.AngularVelocity * rb.Y, b.AngularVelocity * rb.X);
+			MyVector relativeVelocity = vb - va;
+
+			float velocityAlongNormal = relativeVelocity.Dot(normal);
+			if (velocityAlongNormal < 0) continue;
+
+			// 4. Расчет импульса
+			float raCrossN = ra.Cross(normal);
+			float rbCrossN = rb.Cross(normal);
+			float invMassSum = a.InverseMass + b.InverseMass +
+							 (raCrossN * raCrossN) * a.InverseInertia +
+							 (rbCrossN * rbCrossN) * b.InverseInertia;
+
+			float j = -(1 + restitution) * velocityAlongNormal / invMassSum;
+			MyVector impulse = normal * j;
+
+			// 5. Применение импульсов
+			if (!a.IsStatic)
+			{
+				a.Velocity -= impulse * a.InverseMass;
+				a.AngularVelocity -= ra.Cross(impulse) * a.InverseInertia;
+			}
+
+			if (!b.IsStatic)
+			{
+				b.Velocity += impulse * b.InverseMass;
+				b.AngularVelocity += rb.Cross(impulse) * b.InverseInertia;
+			}
+		}
+	}
+
+	private IEnumerable<(PhysicsBaseEntity, PhysicsBaseEntity)> GetCollidingPairs()
 	{
 		for (var i = 0; i < Entities.Count; i++)
 		{
 			for (var j = i + 1; j < Entities.Count; j++)
 			{
-				var a = Entities[i];
-				var b = Entities[j];
-
-				var collisionInfo = a.GetCollisionInfo(b);
-				if (!collisionInfo.Intersects)
-				{
-					continue;
-				}
-
-				a.CollisionPoints.Add(new MyVector(collisionInfo.ContactPoint.X, collisionInfo.ContactPoint.Y));
-
-				var normal = collisionInfo.Normal;
-				var penetration = collisionInfo.Penetration;
-				var contactPoint = collisionInfo.ContactPoint;
-
-				// Позиционная коррекция
-				const float percent = 0.8f; // Насколько сильно корректируем
-				const float slop = 0.01f;   // Минимальное смещение чтобы избежать "дрожания"
-				const float maxCorrection = 20f;
-				const float restitution = 0.2f;
-
-				float correctionMagnitude = Math.Max(penetration - slop, 0f) / (a.InverseMass + b.InverseMass) * percent;
-				correctionMagnitude = Math.Min(correctionMagnitude, maxCorrection);
-
-				var correction = normal * correctionMagnitude;
-
-				if (a.InverseMass > 0)
-				{
-					a.Position -= correction * a.InverseMass;
-				}
-
-				if (b.InverseMass > 0)
-				{
-					b.Position += correction * b.InverseMass;
-				}
-
-				var ra = new MyVector(contactPoint.X - a.Position.X, contactPoint.Y - a.Position.Y);
-				var rb = new MyVector(contactPoint.X - b.Position.X, contactPoint.Y - b.Position.Y);
-
-				var va = new MyVector(
-					a.Speed.X - a.AngularSpeed * -ra.Y,
-					a.Speed.Y + a.AngularSpeed * ra.X
-				);
-				var vb = new MyVector(
-					b.Speed.X - b.AngularSpeed * -rb.Y,
-					b.Speed.Y + b.AngularSpeed * rb.X
-				);
-				var relativeVelocity = new MyVector(va.X - vb.X, va.Y - vb.Y);
-
-				var velAlongNormal = relativeVelocity.ScalarMul(normal);
-				if (velAlongNormal < 0)
-				{
-					continue;
-				}
-
-				// Вращательное влияние на импульс
-				var raCrossN = ra.X * normal.Y - ra.Y * normal.X;
-				var rbCrossN = rb.X * normal.Y - rb.Y * normal.X;
-
-				var denom = a.InverseMass + b.InverseMass +
-				            (raCrossN * raCrossN) / a.Inertia +
-				            (rbCrossN * rbCrossN) / b.Inertia;
-
-				var jj = -(1 + restitution) * velAlongNormal / denom;
-
-				var impulse = normal.Copy();
-				impulse *=jj;
-
-				var accelerationA = impulse * a.InverseMass;
-				var accelerationB = impulse * -b.InverseMass;
-
-				a.AddForce("contact", accelerationA);
-				b.AddForce("contact", accelerationB);
-
-				var angularAccelerationA = raCrossN * jj / a.Inertia;
-				var angularAccelerationB = rbCrossN * jj / b.Inertia;
-
-				a.AddTorque("contact", angularAccelerationA);
-				b.AddTorque("contact", angularAccelerationB);
+				yield return (Entities[i], Entities[j]);
 			}
 		}
 	}
@@ -320,7 +333,7 @@ public class My2dWorld
 			_stepStopwatch.Restart();
                 
 			DoLogic();
-			Update();
+			Update(1);
 
 			var elapsed = _stepStopwatch.Elapsed;
 			var remains = _estimatedStepTime - elapsed;

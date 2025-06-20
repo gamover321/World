@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Numerics;
 using System.Windows.Forms.VisualStyles;
 using World.Engine.My2dWorld.Collisions;
 using World.Engine.Primitives;
@@ -13,15 +14,17 @@ public abstract class PhysicsBaseEntity : IPhysicsEntity
 
 	#region Линейное движение
 	public MyVector Position { get; set; }
-	public MyVector Speed { get; set; }
+	public MyVector Velocity { get; set; }
 	public MyVector Acceleration { get; set; }
 	public float Mass { get; set; }
 	public float InverseMass => Mass == 0 ? 0 : 1 / Mass;
+	public bool IsStatic => InverseMass == 0;
+
 	#endregion
 
 	#region Вращательное движение
 	public float AngularPosition { get; set; }
-	public float AngularSpeed { get; set; }
+	public float AngularVelocity { get; set; }
 	public float AngularAcceleration { get; set; }
 	public float Inertia { get; protected set; }
 	public float InverseInertia => Inertia == 0 ? 0 : 1 / Inertia;
@@ -38,10 +41,10 @@ public abstract class PhysicsBaseEntity : IPhysicsEntity
 	protected PhysicsBaseEntity(float x, float y, float mass)
 	{
 		Position = new MyVector(x, y);
-		Speed = MyVector.Empty();
+		Velocity = MyVector.Empty();
 
 		AngularPosition = 0;
-		AngularSpeed = 0f;
+		AngularVelocity = 0f;
 
 		Acceleration = MyVector.Empty();
 		AngularAcceleration = 0f;
@@ -54,11 +57,11 @@ public abstract class PhysicsBaseEntity : IPhysicsEntity
 		Acceleration = GetAcceleration();
 		AngularAcceleration = GetAngularAcceleration();
 
-		Speed = Speed.Add(Acceleration);
-		AngularSpeed += AngularAcceleration;
+		Velocity = Velocity.Add(Acceleration);
+		AngularVelocity += AngularAcceleration;
 
-		Position = Position.Add(Speed);
-		AngularPosition += AngularSpeed;
+		Position = Position.Add(Velocity);
+		AngularPosition += AngularVelocity;
 
 		OnUpdate();
 
@@ -72,10 +75,24 @@ public abstract class PhysicsBaseEntity : IPhysicsEntity
 
 	public virtual void OnUpdate() { }
 
-	public void AddForce(string name, MyVector myVector) => Forces[name] = myVector;
+	public void AddForce(MyVector myVector, string name = "")
+	{
+		if (string.IsNullOrEmpty(name))
+		{
+			name = Guid.NewGuid().ToString();
+		}
+		Forces[name] = new MyVector(myVector.X, myVector.Y);
+	}
 	public void RemoveForce(string name) => Forces.Remove(name);
 
-	public void AddTorque(string name, float torque) => Torques[name] = torque;
+	public void AddTorque(float torque, string name ="")
+	{
+		if (string.IsNullOrEmpty(name))
+		{
+			name = Guid.NewGuid().ToString();
+		}
+		Torques[name] = torque;
+	}
 	public void RemoveTorque(string name) => Torques.Remove(name);
 
 	public abstract bool IsIntersect(PhysicsBaseEntity other);
@@ -172,12 +189,12 @@ public abstract class PhysicsBaseEntity : IPhysicsEntity
 	{
 		var globalPoints = GetTransformedPoints();
 
-		var min = axis.ScalarMul(globalPoints[0]);
+		var min = axis.Dot(globalPoints[0]);
 		var max = min;
 
 		for (int i = 1; i < globalPoints.Length; i++)
 		{
-			var proj = axis.ScalarMul(globalPoints[i]);
+			var proj = axis.Dot(globalPoints[i]);
 			if (proj < min) min = proj;
 			if (proj > max) max = proj;
 		}
@@ -216,7 +233,7 @@ public abstract class PhysicsBaseEntity : IPhysicsEntity
 		}
 
 		var direction = other.Position.Sub(Position);
-		if (smallestAxis.ScalarMul(direction) < 0)
+		if (smallestAxis.Dot(direction) < 0)
 		{
 			smallestAxis = new MyVector(-smallestAxis.X, -smallestAxis.Y);
 		}
@@ -234,87 +251,286 @@ public abstract class PhysicsBaseEntity : IPhysicsEntity
 
 	private MyVector GetContactPoint(PhysicsBaseEntity other, MyVector normal)
 	{
-		normal = normal.Normalize();
-
 		var pointsA = GetTransformedPoints();
 		var pointsB = other.GetTransformedPoints();
 
-		// Касательный вектор — перпендикуляр к нормали
-		var tangent = new MyVector(normal.Y, -normal.X);
+		// Находим все точки, участвующие в столкновении
+		List<MyVector> contactPoints = new List<MyVector>();
 
-		const float epsilon = 0.01f;
-
-		// Проекция на нормаль, чтобы выбрать крайние точки
-		float minProjA = float.MaxValue;
-		List<MyVector> candidatesA = new();
-
-		foreach (var v in pointsA)
+		// Проверяем вершины A против ребер B
+		foreach (var point in pointsA)
 		{
-			float proj = v.ScalarMul(normal);
-			if (proj < minProjA - epsilon)
+			if (IsPointInsidePolygon(point, pointsB))
 			{
-				minProjA = proj;
-				candidatesA.Clear();
-				candidatesA.Add(v);
-			}
-			else if (Math.Abs(proj - minProjA) <= epsilon)
-			{
-				candidatesA.Add(v);
+				contactPoints.Add(point);
 			}
 		}
 
-		// Среди кандидатов выбираем по касательной
-		MyVector bestA = candidatesA[0];
-		float bestTangentProjA = bestA.ScalarMul(tangent);
-
-		foreach (var v in candidatesA)
+		// Проверяем вершины B против ребер A
+		foreach (var point in pointsB)
 		{
-			float tangentProj = v.ScalarMul(tangent);
-			// Выбираем точку с минимальной (или максимальной — зависит от направления) касательной проекцией
-			if (tangentProj < bestTangentProjA)
+			if (IsPointInsidePolygon(point, pointsA))
 			{
-				bestTangentProjA = tangentProj;
-				bestA = v;
+				contactPoints.Add(point);
 			}
 		}
 
-		// Аналогично для B (берём максимальную проекцию по нормали)
-		float maxProjB = float.MinValue;
-		List<MyVector> candidatesB = new();
-
-		foreach (var v in pointsB)
+		// Если нашли точки контакта - возвращаем среднюю
+		if (contactPoints.Count > 0)
 		{
-			float proj = v.ScalarMul(normal);
-			if (proj > maxProjB + epsilon)
+			MyVector sum = contactPoints[0];
+			for (int i = 1; i < contactPoints.Count; i++)
 			{
-				maxProjB = proj;
-				candidatesB.Clear();
-				candidatesB.Add(v);
+				sum = sum.Add(contactPoints[i]);
 			}
-			else if (Math.Abs(proj - maxProjB) <= epsilon)
-			{
-				candidatesB.Add(v);
-			}
+			return sum*(1f/contactPoints.Count);
 		}
 
-		MyVector bestB = candidatesB[0];
-		float bestTangentProjB = bestB.ScalarMul(tangent);
+		// Если нет вершин внутри (столкновение ребро-ребро)
+		return FindEdgeEdgeContact(pointsA, pointsB, normal);
+	}
 
-		foreach (var v in candidatesB)
+	private MyVector FindEdgeEdgeContact(MyVector[] polyA, MyVector[] polyB, MyVector normal)
+	{
+		// Находим ближайшие ребра между полигонами
+		(MyVector edgeAStart, MyVector edgeAEnd) = FindClosestEdge(polyA, polyB, normal);
+		(MyVector edgeBStart, MyVector edgeBEnd) = FindClosestEdge(polyB, polyA, new MyVector(-normal.X, -normal.Y));
+
+		// Находим точку пересечения ребер
+		if (LineIntersection(edgeAStart, edgeAEnd, edgeBStart, edgeBEnd, out MyVector intersection))
 		{
-			float tangentProj = v.ScalarMul(tangent);
-			if (tangentProj > bestTangentProjB) // обычно для другой стороны выбираем max
-			{
-				bestTangentProjB = tangentProj;
-				bestB = v;
-			}
+			return intersection;
 		}
 
-		// Средняя точка контакта
+		// Если пересечения нет (параллельные ребра), возвращаем середину между ближайшими точками
 		return new MyVector(
-			(bestA.X + bestB.X) / 2f,
-			(bestA.Y + bestB.Y) / 2f
+			(edgeAStart.X + edgeBStart.X) * 0.5f,
+			(edgeAStart.Y + edgeBStart.Y) * 0.5f
 		);
+	}
+
+	private (MyVector start, MyVector end) FindClosestEdge(MyVector[] polygon, MyVector[] otherPoly, MyVector normal)
+	{
+		float minDistance = float.MaxValue;
+		int edgeIndex = 0;
+
+		for (int i = 0; i < polygon.Length; i++)
+		{
+			int j = (i + 1) % polygon.Length;
+			float distance = 0;
+
+			foreach (var point in otherPoly)
+			{
+				distance += DistanceToEdge(point, polygon[i], polygon[j], normal);
+			}
+
+			if (distance < minDistance)
+			{
+				minDistance = distance;
+				edgeIndex = i;
+			}
+		}
+
+		int nextIndex = (edgeIndex + 1) % polygon.Length;
+		return (polygon[edgeIndex], polygon[nextIndex]);
+	}
+
+	private float DistanceToEdge(MyVector point, MyVector edgeStart, MyVector edgeEnd, MyVector normal)
+	{
+		MyVector edge = edgeEnd.Sub(edgeStart);
+		MyVector toPoint = point.Sub(edgeStart);
+
+		float t = Math.Clamp(toPoint.Dot(edge) / edge.Dot(edge), 0, 1);
+		MyVector projection = edgeStart.Add(edge.Mul(t));
+
+		return point.Sub(projection).LengthSquared();
+	}
+
+	private bool LineIntersection(MyVector a1, MyVector a2, MyVector b1, MyVector b2, out MyVector intersection)
+	{
+		intersection = new MyVector(0, 0);
+
+		MyVector r = a2.Sub(a1);
+		MyVector s = b2.Sub(b1);
+		float rxs = r.Cross(s);
+		float qpxr = (b1.Sub(a1)).Cross(r);
+
+		// Параллельные линии
+		if (Math.Abs(rxs) < float.Epsilon) return false;
+
+		float t = (b1.Sub(a1)).Cross(s) / rxs;
+		float u = (b1.Sub(a1)).Cross(r) / rxs;
+
+		if (t >= 0 && t <= 1 && u >= 0 && u <= 1)
+		{
+			intersection = a1.Add(r.Mul(t));
+			return true;
+		}
+
+		return false;
+	}
+
+	private bool IsPointInsidePolygon(MyVector point, MyVector[] polygon)
+	{
+		bool inside = false;
+		for (int i = 0, j = polygon.Length - 1; i < polygon.Length; j = i++)
+		{
+			if (((polygon[i].Y > point.Y) != (polygon[j].Y > point.Y)) &&
+				(point.X < (polygon[j].X - polygon[i].X) * (point.Y - polygon[i].Y) /
+						  (polygon[j].Y - polygon[i].Y) + polygon[i].X))
+			{
+				inside = !inside;
+			}
+		}
+		return inside;
+	}
+
+	private (MyVector, MyVector) FindClosestPoints(List<MyVector> polyA, List<MyVector> polyB, MyVector normal)
+	{
+		MyVector closestA = polyA[0];
+		MyVector closestB = polyB[0];
+		float minDist = float.MaxValue;
+
+		foreach (var pA in polyA)
+		{
+			foreach (var pB in polyB)
+			{
+				float dist = (pA.X - pB.X) * normal.X + (pA.Y - pB.Y) * normal.Y;
+				if (dist < minDist)
+				{
+					minDist = dist;
+					closestA = pA;
+					closestB = pB;
+				}
+			}
+		}
+
+		return (closestA, closestB);
+	}
+
+	private bool IsVertexContact(List<MyVector> polygon, MyVector point)
+	{
+		return polygon.Any(p => Math.Abs(p.X - point.X) < 0.001f && Math.Abs(p.Y - point.Y) < 0.001f);
+	}
+
+	private MyVector FindEdgeContactPoint(List<MyVector> edgePoly, MyVector vertex, MyVector normal)
+	{
+		float minDist = float.MaxValue;
+		MyVector contact = vertex;
+
+		for (int i = 0; i < edgePoly.Count; i++)
+		{
+			int j = (i + 1) % edgePoly.Count;
+			MyVector edgeStart = edgePoly[i];
+			MyVector edgeEnd = edgePoly[j];
+
+			// Проекция вершины на ребро
+			MyVector edge = new MyVector(edgeEnd.X - edgeStart.X, edgeEnd.Y - edgeStart.Y);
+			MyVector toVertex = new MyVector(vertex.X - edgeStart.X, vertex.Y - edgeStart.Y);
+
+			float edgeLengthSq = edge.X * edge.X + edge.Y * edge.Y;
+			float t = Math.Clamp((toVertex.X * edge.X + toVertex.Y * edge.Y) / edgeLengthSq, 0, 1);
+
+			MyVector projection = new MyVector(
+				edgeStart.X + t * edge.X,
+				edgeStart.Y + t * edge.Y
+			);
+
+			float dist = (vertex.X - projection.X) * normal.X + (vertex.Y - projection.Y) * normal.Y;
+			if (dist < minDist)
+			{
+				minDist = dist;
+				contact = projection;
+			}
+		}
+
+		return contact;
+	}
+
+	private List<MyVector> ClipEdges(List<MyVector> polyA, List<MyVector> polyB, MyVector normal)
+	{
+		var contacts = new List<MyVector>();
+
+		// Находим ребро с максимальным перекрытием
+		float maxOverlap = float.MinValue;
+		int edgeIndex = 0;
+
+		for (int i = 0; i < polyA.Count; i++)
+		{
+			int j = (i + 1) % polyA.Count;
+			MyVector edge = new MyVector(polyA[j].X - polyA[i].X, polyA[j].Y - polyA[i].Y);
+			float edgeLength = (float)Math.Sqrt(edge.X * edge.X + edge.Y * edge.Y);
+			MyVector edgeNormal = new MyVector(-edge.Y / edgeLength, edge.X / edgeLength);
+
+			float overlap = normal.X * edgeNormal.X + normal.Y * edgeNormal.Y;
+			if (overlap > maxOverlap)
+			{
+				maxOverlap = overlap;
+				edgeIndex = i;
+			}
+		}
+
+		// Получаем ребро для клиппинга
+		MyVector v1 = polyA[edgeIndex];
+		MyVector v2 = polyA[(edgeIndex + 1) % polyA.Count];
+		MyVector edgeDir = new MyVector(v2.X - v1.X, v2.Y - v1.Y);
+		float edgeDirLength = (float)Math.Sqrt(edgeDir.X * edgeDir.X + edgeDir.Y * edgeDir.Y);
+		MyVector edgeNormalized = new MyVector(edgeDir.X / edgeDirLength, edgeDir.Y / edgeDirLength);
+
+		// Клиппим полигон B по этому ребру
+		var clipped = ClipPolygon(polyB, v1, edgeNormalized);
+
+		// Добавляем точки, которые находятся внутри полигона A
+		foreach (var p in clipped)
+		{
+			if (IsInsidePolygon(polyA, p))
+			{
+				contacts.Add(p);
+			}
+		}
+
+		return contacts;
+	}
+
+	private bool IsInsidePolygon(List<MyVector> polygon, MyVector point)
+	{
+		bool inside = false;
+		for (int i = 0, j = polygon.Count - 1; i < polygon.Count; j = i++)
+		{
+			if (((polygon[i].Y > point.Y) != (polygon[j].Y > point.Y)) &&
+				(point.X < (polygon[j].X - polygon[i].X) * (point.Y - polygon[i].Y) /
+						  (polygon[j].Y - polygon[i].Y) + polygon[i].X))
+			{
+				inside = !inside;
+			}
+		}
+		return inside;
+	}
+
+	private List<MyVector> ClipPolygon(List<MyVector> polygon, MyVector point, MyVector normal)
+	{
+		var result = new List<MyVector>();
+
+		for (int i = 0; i < polygon.Count; i++)
+		{
+			int j = (i + 1) % polygon.Count;
+			MyVector vi = polygon[i];
+			MyVector vj = polygon[j];
+
+			float di = (vi.X - point.X) * normal.X + (vi.Y - point.Y) * normal.Y;
+			float dj = (vj.X - point.X) * normal.X + (vj.Y - point.Y) * normal.Y;
+
+			if (di <= 0) result.Add(vi);
+			if (di * dj < 0)
+			{
+				float t = Math.Abs(di) / (Math.Abs(di) + Math.Abs(dj));
+				float intersectX = vi.X + (vj.X - vi.X) * t;
+				float intersectY = vi.Y + (vj.Y - vi.Y) * t;
+				result.Add(new MyVector(intersectX, intersectY));
+			}
+		}
+
+		return result;
 	}
 
 
@@ -363,7 +579,7 @@ public abstract class PhysicsBaseEntity : IPhysicsEntity
 			return new CollisionInfo { Intersects = false };
 
 		var direction = b.Position - a.Position;
-		if (smallestAxis.ScalarMul(direction) < 0)
+		if (smallestAxis.Dot(direction) < 0)
 		{
 			smallestAxis = smallestAxis*-1;
 		}
@@ -386,11 +602,11 @@ public abstract class PhysicsBaseEntity : IPhysicsEntity
 
 		// Найдём вершину объекта A, которая ближе всех вдоль нормали к B
 		MyVector bestA = aVertices[0];
-		float minA = bestA.ScalarMul(normal);
+		float minA = bestA.Dot(normal);
 
 		foreach (var v in aVertices)
 		{
-			float proj = v.ScalarMul(normal);
+			float proj = v.Dot(normal);
 			if (proj < minA)
 			{
 				minA = proj;
@@ -400,11 +616,11 @@ public abstract class PhysicsBaseEntity : IPhysicsEntity
 
 		// Найдём вершину объекта B, которая ближе всех вдоль обратной нормали к A
 		MyVector bestB = bVertices[0];
-		float maxB = bestB.ScalarMul(normal);
+		float maxB = bestB.Dot(normal);
 
 		foreach (var v in bVertices)
 		{
-			float proj = v.ScalarMul(normal);
+			float proj = v.Dot(normal);
 			if (proj > maxB)
 			{
 				maxB = proj;

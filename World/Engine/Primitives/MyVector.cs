@@ -48,7 +48,7 @@ public class MyVector
     }
 
 	// Скалярное произведение векторов
-	public float ScalarMul(MyVector other)
+	public float Dot(MyVector other)
     {
 	    return X * other.X + Y * other.Y;
     }
@@ -77,7 +77,12 @@ public class MyVector
         Y = (float)((prevX-x) * sin + (prevY-y) * cos + y);
     }
 
-    public float LengthSquared()
+    public float Length()
+    {
+	    return (float)Math.Sqrt(LengthSquared());
+    }
+
+	public float LengthSquared()
     {
 	    return X * X + Y * Y;
     }
@@ -90,6 +95,7 @@ public class MyVector
         return new MyVector(0, 0);
     }
 	public static MyVector operator *(MyVector v, float scalar) => new(v.X * scalar, v.Y * scalar);
+	public static MyVector operator /(MyVector v, float scalar) => new(v.X / scalar, v.Y / scalar);
 	public static MyVector operator -(MyVector a, MyVector b) => new(a.X - b.X, a.Y - b.Y);
 	public static MyVector operator +(MyVector a, MyVector b) => new(a.X + b.X, a.Y + b.Y);
 
@@ -98,4 +104,9 @@ public class MyVector
         var result = deg * Math.PI / 180;
         return result;
     }
+
+	public override string ToString()
+	{
+		return $"{X};{Y}";
+	}
 }

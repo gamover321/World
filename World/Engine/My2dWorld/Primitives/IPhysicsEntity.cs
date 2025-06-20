@@ -5,12 +5,12 @@ namespace World.Engine.My2dWorld.Primitives;
 public interface IPhysicsEntity
 {
 	MyVector Position { get; set; }
-	MyVector Speed { get; set; }
+	MyVector Velocity { get; set; }
 	MyVector Acceleration { get; set; }
 	float Mass { get; set; }
 	float InverseMass { get; }
 	float AngularPosition { get; set; }
-	float AngularSpeed { get; set; }
+	float AngularVelocity { get; set; }
 	float AngularAcceleration { get; set; }
 	float Inertia { get; }
 	float InverseInertia { get; }
@@ -19,9 +19,9 @@ public interface IPhysicsEntity
 	MyVector[] Points { get; init; }
 	void Update();
 	void OnUpdate();
-	void AddForce(string name, MyVector myVector);
+	void AddForce(MyVector myVector, string name);
 	void RemoveForce(string name);
-	void AddTorque(string name, float torque);
+	void AddTorque(float torque, string name);
 	void RemoveTorque(string name);
 	bool IsIntersect(PhysicsBaseEntity other);
 	float GetRadius();

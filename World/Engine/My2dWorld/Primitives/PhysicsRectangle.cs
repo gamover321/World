@@ -79,7 +79,7 @@ public class PhysicsRectangle : PhysicsBaseEntity
 		// Направление нормали должно смотреть от this к other
 		var centerDir = other.Position.Copy();
 		centerDir.Sub(Position);
-		if (mtvNormal.ScalarMul(centerDir) < 0)
+		if (mtvNormal.Dot(centerDir) < 0)
 		{
 			mtvNormal.Mul(-1);
 		}
