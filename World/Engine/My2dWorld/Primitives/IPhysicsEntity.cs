@@ -9,25 +9,24 @@ public interface IPhysicsEntity
 	MyVector Acceleration { get; set; }
 	float Mass { get; set; }
 	float InverseMass { get; }
-	float AngularPosition { get; set; }
+	float Angle { get; set; }
 	float AngularVelocity { get; set; }
 	float AngularAcceleration { get; set; }
 	float Inertia { get; }
 	float InverseInertia { get; }
-	Dictionary<string, MyVector> Forces { get; set; }
-	Dictionary<string, float> Torques { get; set; }
+	Dictionary<string, MyVector> Forces { get; init; }
+	Dictionary<string, float> Torques { get; init; }
 	MyVector[] Points { get; init; }
-	void Update();
 	void OnUpdate();
 	void AddForce(MyVector myVector, string name);
 	void RemoveForce(string name);
 	void AddTorque(float torque, string name);
 	void RemoveTorque(string name);
-	bool IsIntersect(PhysicsBaseEntity other);
+	//bool IsIntersect(PhysicsBaseEntity other, PhysicsContext ctx);
 	float GetRadius();
-	List<MyVector> GetNormals();
-	MyVector[] GetTransformedPoints();
-	MyVector GetAcceleration();
-	float GetAngularAcceleration();
-	(float min, float max) ProjectOntoAxis(MyVector axis);
+	List<MyVector> GetNormals(PhysicsContext ctx);
+	MyVector[] GetTransformedPoints(PhysicsContext ctx);
+	MyVector GetTotalAcceleration();
+	float GetTotalTorque();
+	(float min, float max) ProjectOntoAxis(MyVector axis, PhysicsContext ctx);
 }

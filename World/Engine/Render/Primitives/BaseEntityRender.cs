@@ -1,4 +1,5 @@
 ﻿using SkiaSharp;
+using World.Engine.My2dWorld;
 using World.Engine.My2dWorld.Primitives;
 
 namespace World.Engine.Render.Primitives;
@@ -22,7 +23,7 @@ public class BaseEntityRender : IEntityRender
 		float? prevX = null;
 		float? prevY = null;
 
-		var transformedEdges = entity.GetTransformedPoints();
+		var transformedEdges = entity.GetTransformedPoints(PhysicsContext.Actual);
 		
 		foreach (var edge in transformedEdges)
 		{

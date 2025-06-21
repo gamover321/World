@@ -6,14 +6,18 @@ using World.Engine.My2dWorld.Primitives;
 using World.Engine.Primitives;
 using World.Engine.Render;
 using World.Engine.Vector;
+using Timer = System.Windows.Forms.Timer;
 
 
 namespace World
 {
 	public partial class Form1 : Form
 	{
-		private My2dWorld _world;
+		private PhysicsWorld _world;
 		private WorldRender _worldRender;
+		private readonly PhysicsTimeManager _timeManager;
+		private readonly Timer _gameTimer;
+		private float _speed = 1f;
 
 		private bool _isRunning;
 
@@ -21,13 +25,24 @@ namespace World
 		{
 			InitializeComponent();
 
-			_world = new My2dWorld(pictureBox1.Width, pictureBox1.Height);
-			//_world.Start();
+			_world = new PhysicsWorld(pictureBox1.Width, pictureBox1.Height);
+			_timeManager = new PhysicsTimeManager(_world);
 
 			_worldRender = new WorldRender(_world);
 
 			_worldRender.Start();
 			_isRunning = true;
+
+			// Таймер для обновления игры
+			_gameTimer = new Timer { Interval = 16 }; // ~60 FPS
+			_gameTimer.Tick += GameLoop;
+			_gameTimer.Start();
+		}
+
+		private void GameLoop(object sender, EventArgs e)
+		{
+			float deltaTime = _gameTimer.Interval / 1000f * _speed; // Конвертируем в секунды
+			_timeManager.UpdateWithVariableDelta(deltaTime);
 		}
 
 		private void pictureBox1_Click(object sender, EventArgs e)
@@ -74,11 +89,11 @@ namespace World
 			var relY = mouseVec.Y - entity.Position.Y;
 
 			var acc = new MyVector(relX, relY);
-			acc.Normalize();
+			acc = acc.Normalize();
 
 			var mouseDist = entity.Position.DistanceTo(mouseVec);
-			acc.Mul((float)Math.Pow(0.00001f * mouseDist, 0.5));
-			acc.Mul(mul);
+			acc = acc.Mul((float)Math.Pow(0.000001f * mouseDist, 0.5));
+			//acc.Mul(mul);
 
 			if (!_isRunning)
 			{
@@ -101,7 +116,7 @@ namespace World
 
 			text += $" ({p.X}, {p.Y})";
 
-			text += $" Step:{_world.CurrentStep} ({_world.GetFps()} fps - {_world.WorldTime.TotalSeconds:0} sec)";
+			//text += $" Step:{_world.CurrentStep} ({_world.GetFps()} fps - {_world.WorldTime.TotalSeconds:0} sec)";
 
 			return text;
 		}
@@ -115,21 +130,28 @@ namespace World
 
 		private void button1_Click(object sender, EventArgs e)
 		{
-			_world.ManualUpdate();
+			_world.Update(1);
 		}
 
 		private void button2_Click(object sender, EventArgs e)
 		{
-			if (!_world.IsRunning)
+			_timeManager.TogglePause();
+			button2.Text = _timeManager.IsPaused ? "Resume" : "Pause";
+		}
+
+		private void button3_Click(object sender, EventArgs e)
+		{
+			for (int i = 0; i < 100; i++)
 			{
-				_world.Start();
-				button2.Text = "Stop";
+				_world.Update(1);
 			}
-			else
-			{
-				_world.Stop();
-				button2.Text = "Start";
-			}
+
+		}
+
+		private void trackBar1_Scroll(object sender, EventArgs e)
+		{
+			TrackBar trackBar = (TrackBar)sender;
+			_speed = trackBar.Value;
 		}
 	}
 }

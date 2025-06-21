@@ -16,7 +16,7 @@ namespace World.Engine.Render
         private TimeSpan _nextFrameTime = TimeSpan.Zero;
         private TimeSpan _frameRenderTime = TimeSpan.Zero;
 
-        private My2dWorld.My2dWorld _world;
+        private My2dWorld.PhysicsWorld _world;
         private CancellationTokenSource _cancellationTokenSource;
         private Stopwatch _stopwatch;
 
@@ -25,7 +25,7 @@ namespace World.Engine.Render
 
         public Dictionary<PhysicsBaseEntity, BaseEntityRender> RenderDict = new();
 
-        public WorldRender(My2dWorld.My2dWorld world)
+        public WorldRender(My2dWorld.PhysicsWorld world)
         {
             _world = world;
             _stopwatch = new Stopwatch();
@@ -37,18 +37,27 @@ namespace World.Engine.Render
 
             Task.Run(async () =>
             {
-                var stopwatch = new Stopwatch();
-                stopwatch.Start();
+	            try
+	            {
+		            var stopwatch = new Stopwatch();
+		            stopwatch.Start();
 
-                while (!_cancellationTokenSource.Token.IsCancellationRequested)
-                {
-                    var frameWasUpdated = await Tick();
-                    if (frameWasUpdated)
-                    {
-                        _frameRenderTime = stopwatch.Elapsed;
-                        stopwatch.Restart();
-                    }
-                }
+		            while (!_cancellationTokenSource.Token.IsCancellationRequested)
+		            {
+			            var frameWasUpdated = await Tick();
+			            if (frameWasUpdated)
+			            {
+				            _frameRenderTime = stopwatch.Elapsed;
+				            stopwatch.Restart();
+			            }
+		            }
+				}
+	            catch (Exception e)
+	            {
+		            Console.WriteLine(e);
+		            //throw;
+	            }
+                
             }, _cancellationTokenSource.Token);
         }
 

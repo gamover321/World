@@ -1,4 +1,5 @@
 ﻿using SkiaSharp;
+using World.Engine.My2dWorld;
 using World.Engine.My2dWorld.Primitives;
 
 namespace World.Engine.Render.Primitives
@@ -20,12 +21,13 @@ namespace World.Engine.Render.Primitives
 	        base.Render(canvas);
 
 			//RenderPrevPositions(canvas);
-            RenderPrevCollisions(canvas);
+			//RenderPrevCollisions(canvas);
 
 			//RenderCircleRadius(canvas);
-            //RenderAcceleration(canvas);
-            RenderPosition(canvas);
-            RenderNormals(canvas);
+			//RenderAcceleration(canvas);
+			RenderVelocity(canvas);
+			//RenderPosition(canvas);
+            //RenderNormals(canvas);
 
         }
 
@@ -40,7 +42,7 @@ namespace World.Engine.Render.Primitives
         private void RenderNormals(SKCanvas canvas)
         {
 
-	        var normals = entity.GetNormals();
+	        var normals = entity.GetNormals(PhysicsContext.Actual);
 	        foreach (var normal in normals)
 	        {
 				canvas.DrawLine(entity.Position.X, entity.Position.Y,
@@ -66,9 +68,24 @@ namespace World.Engine.Render.Primitives
                 });
         }
 
-        private void RenderPosition(SKCanvas canvas)
+        private void RenderVelocity(SKCanvas canvas)
         {
-	        var text = $"{entity.Name}  {entity.Position.X} {entity.Position.Y}";
+	        //var text = $"{entity.Velocity.X:0.0} {entity.Velocity.Y:0:0}";
+	        //canvas.DrawText(text, entity.Position.X, entity.Position.Y - entity.GetRadius(), new SKPaint()
+	        //{
+		    //    Color = SKColor.Parse("#000000")
+	        //});
+
+	        canvas.DrawLine(entity.Position.X, entity.Position.Y,
+		        entity.Position.X + entity.Velocity.X * 20, entity.Position.Y + entity.Velocity.Y * 20, new SKPaint
+		        {
+			        Color = SKColor.Parse("#FFAAFF")
+		        });
+        }
+
+		private void RenderPosition(SKCanvas canvas)
+        {
+	        var text = $"{entity.Name} ({entity.Position.X:0}:{entity.Position.Y:0})";
 	        canvas.DrawText(text, entity.Position.X, entity.Position.Y + entity.GetRadius(), new SKPaint()
 	        {
 		        Color = SKColor.Parse("#000000")

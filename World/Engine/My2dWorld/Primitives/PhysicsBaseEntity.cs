@@ -14,6 +14,7 @@ public abstract class PhysicsBaseEntity : IPhysicsEntity
 
 	#region Линейное движение
 	public MyVector Position { get; set; }
+	public MyVector PredictedPosition { get; set; }
 	public MyVector Velocity { get; set; }
 	public MyVector Acceleration { get; set; }
 	public float Mass { get; set; }
@@ -23,49 +24,39 @@ public abstract class PhysicsBaseEntity : IPhysicsEntity
 	#endregion
 
 	#region Вращательное движение
-	public float AngularPosition { get; set; }
+	public float Angle { get; set; }
+	public float PredictedAngle { get; set; }
 	public float AngularVelocity { get; set; }
 	public float AngularAcceleration { get; set; }
-	public float Inertia { get; protected set; }
+	public float Inertia { get; protected set; } = 1;
 	public float InverseInertia => Inertia == 0 ? 0 : 1 / Inertia;
 	#endregion
 
-	public Dictionary<string, MyVector> Forces { get; set; } = new();
-	public Dictionary<string, float> Torques { get; set; } = new();
+	public Dictionary<string, MyVector> Forces { get; init; } = new();
+	public Dictionary<string, float> Torques { get; init; } = new();
 
 	public MyVector[] Points { get; init; }
 	public List<MyVector> CollisionPoints { get; set; } = new();
 
 	#endregion
 
+	public MyVector GetPosition(PhysicsContext ctx) => ctx.UsePredicted ? PredictedPosition : Position;
+	public float GetAngle(PhysicsContext ctx) => ctx.UsePredicted ? PredictedAngle : Angle;
+
 	protected PhysicsBaseEntity(float x, float y, float mass)
 	{
 		Position = new MyVector(x, y);
+		PredictedPosition = Position;
+
 		Velocity = MyVector.Empty();
 
-		AngularPosition = 0;
+		Angle = 0;
 		AngularVelocity = 0f;
 
 		Acceleration = MyVector.Empty();
 		AngularAcceleration = 0f;
 
 		Mass = mass;
-	}
-
-	public virtual void Update()
-	{
-		Acceleration = GetAcceleration();
-		AngularAcceleration = GetAngularAcceleration();
-
-		Velocity = Velocity.Add(Acceleration);
-		AngularVelocity += AngularAcceleration;
-
-		Position = Position.Add(Velocity);
-		AngularPosition += AngularVelocity;
-
-		OnUpdate();
-
-		Debug.WriteLine($"acc: {Acceleration.X}, ang.acc: {AngularAcceleration}");
 	}
 
 	public override string ToString()
@@ -85,6 +76,9 @@ public abstract class PhysicsBaseEntity : IPhysicsEntity
 	}
 	public void RemoveForce(string name) => Forces.Remove(name);
 
+	public void ClearAllForces() => Forces.Clear();
+
+	
 	public void AddTorque(float torque, string name ="")
 	{
 		if (string.IsNullOrEmpty(name))
@@ -94,9 +88,41 @@ public abstract class PhysicsBaseEntity : IPhysicsEntity
 		Torques[name] = torque;
 	}
 	public void RemoveTorque(string name) => Torques.Remove(name);
+	public void ClearTorque() => Torques.Clear();
 
-	public abstract bool IsIntersect(PhysicsBaseEntity other);
-	public abstract bool IsIntersectWithMTV(PhysicsBaseEntity other, out MyVector mtvNormal, out float penetrationDepth);
+	public MyVector GetTotalAcceleration()
+	{
+		if (IsStatic)
+		{
+			return MyVector.Empty();
+		}
+
+		var sum = MyVector.Empty();
+		foreach (var force in Forces.Values)
+		{
+			sum = sum.Add(force);
+		}
+
+		sum *= InverseMass;
+		return sum;
+	}
+
+	public float GetTotalTorque()
+	{
+		if (IsStatic)
+		{
+			return 0f;
+		}
+
+		float totalTorque = 0f;
+		foreach (var t in Torques.Values)
+		{
+			totalTorque += t;
+		}
+
+		//return totalTorque * InverseInertia;
+		return totalTorque;
+	}
 
 	public float GetRadius()
 	{
@@ -110,10 +136,10 @@ public abstract class PhysicsBaseEntity : IPhysicsEntity
 		return r;
 	}
 
-	public List<MyVector> GetNormals()
+	public List<MyVector> GetNormals(PhysicsContext ctx)
 	{
 		var normals = new List<MyVector>();
-		var edges = GetTransformedEdges(); // edges — уже векторы рёбер
+		var edges = GetTransformedEdges(ctx); // edges — уже векторы рёбер
 
 		for (var i = 0; i < edges.Length; i++)
 		{
@@ -125,9 +151,9 @@ public abstract class PhysicsBaseEntity : IPhysicsEntity
 		return normals;
 	}
 
-	public MyVector[] GetTransformedEdges()
+	public MyVector[] GetTransformedEdges(PhysicsContext ctx)
 	{
-		var points = GetTransformedPoints();
+		var points = GetTransformedPoints(ctx);
 		var edges = new MyVector[points.Length];
 
 		for (int i = 0; i < points.Length; i++)
@@ -139,12 +165,14 @@ public abstract class PhysicsBaseEntity : IPhysicsEntity
 		return edges;
 	}
 
-	public MyVector[] GetTransformedPoints()
+	public MyVector[] GetTransformedPoints(PhysicsContext ctx)
 	{
+		var position = GetPosition(ctx);
+
 		var transformed = new MyVector[Points.Length];
 
-		var cos = (float)Math.Cos(AngularPosition);
-		var sin = (float)Math.Sin(AngularPosition);
+		var cos = (float)Math.Cos(Angle);
+		var sin = (float)Math.Sin(Angle);
 
 		for (var i = 0; i < Points.Length; i++)
 		{
@@ -153,41 +181,14 @@ public abstract class PhysicsBaseEntity : IPhysicsEntity
 			var rotatedX = local.X * cos - local.Y * sin;
 			var rotatedY = local.X * sin + local.Y * cos;
 
-			transformed[i] = new MyVector(rotatedX + Position.X, rotatedY + Position.Y);
+			transformed[i] = new MyVector(rotatedX + position.X, rotatedY + position.Y);
 		}
 		return transformed;
 	}
 
-	public MyVector GetAcceleration()
+	public (float min, float max) ProjectOntoAxis(MyVector axis, PhysicsContext ctx)
 	{
-		if (InverseMass == 0)
-			return MyVector.Empty();
-
-		var sum = MyVector.Empty();
-		foreach (var force in Forces.Values)
-		{
-			sum = sum.Add(force);
-		}
-
-		sum.Mul(InverseMass);
-		return sum;
-	}
-
-	public float GetAngularAcceleration()
-	{
-		if (InverseInertia == 0)
-			return 0f;
-
-		float totalTorque = 0f;
-		foreach (var t in Torques.Values)
-			totalTorque += t;
-
-		return totalTorque * InverseInertia;
-	}
-
-	public (float min, float max) ProjectOntoAxis(MyVector axis)
-	{
-		var globalPoints = GetTransformedPoints();
+		var globalPoints = GetTransformedPoints(ctx);
 
 		var min = axis.Dot(globalPoints[0]);
 		var max = min;
@@ -202,17 +203,20 @@ public abstract class PhysicsBaseEntity : IPhysicsEntity
 		return (min, max);
 	}
 
-	public CollisionInfo GetCollisionInfo(PhysicsBaseEntity other)
+	public CollisionInfo GetCollisionInfo(PhysicsBaseEntity other, PhysicsContext ctx)
 	{
-		var axes = GetNormals().Concat(other.GetNormals());
+		var axes = GetNormals(ctx).Concat(other.GetNormals(ctx));
+
+		var position = GetPosition(ctx);
+		var otherPosition = other.GetPosition(ctx);
 
 		var minPenetration = float.MaxValue;
 		MyVector smallestAxis = null;
 
 		foreach (var axis in axes)
 		{
-			var (minA, maxA) = ProjectOntoAxis(axis);
-			var (minB, maxB) = other.ProjectOntoAxis(axis);
+			var (minA, maxA) = ProjectOntoAxis(axis, ctx);
+			var (minB, maxB) = other.ProjectOntoAxis(axis, ctx);
 
 			float overlap = Math.Min(maxA, maxB) - Math.Max(minA, minB);
 			if (overlap < 0)
@@ -232,13 +236,13 @@ public abstract class PhysicsBaseEntity : IPhysicsEntity
 			return new CollisionInfo { Intersects = false };
 		}
 
-		var direction = other.Position.Sub(Position);
+		var direction = otherPosition.Sub(position);
 		if (smallestAxis.Dot(direction) < 0)
 		{
 			smallestAxis = new MyVector(-smallestAxis.X, -smallestAxis.Y);
 		}
 
-		var contactPoint = GetContactPoint(other, smallestAxis);
+		var contactPoint = GetContactPoint(other, smallestAxis, ctx);
 
 		return new CollisionInfo
 		{
@@ -249,10 +253,10 @@ public abstract class PhysicsBaseEntity : IPhysicsEntity
 		};
 	}
 
-	private MyVector GetContactPoint(PhysicsBaseEntity other, MyVector normal)
+	private MyVector GetContactPoint(PhysicsBaseEntity other, MyVector normal, PhysicsContext ctx)
 	{
-		var pointsA = GetTransformedPoints();
-		var pointsB = other.GetTransformedPoints();
+		var pointsA = GetTransformedPoints(ctx);
+		var pointsB = other.GetTransformedPoints(ctx);
 
 		// Находим все точки, участвующие в столкновении
 		List<MyVector> contactPoints = new List<MyVector>();
@@ -533,9 +537,6 @@ public abstract class PhysicsBaseEntity : IPhysicsEntity
 		return result;
 	}
 
-
-
-
 	private MyVector AverageVector(List<MyVector> vectors)
 	{
 		float x = 0, y = 0;
@@ -548,7 +549,8 @@ public abstract class PhysicsBaseEntity : IPhysicsEntity
 		return new MyVector(x / count, y / count);
 	}
 
-	public static CollisionInfo GetCollisionInfo(PhysicsBaseEntity a, PhysicsBaseEntity b)
+	/*
+	public static CollisionInfo GetCollisionInfo(PhysicsBaseEntity a, PhysicsBaseEntity b, PhysicsContext ctx)
 	{
 		var axes = a.GetNormals().Concat(b.GetNormals());
 
@@ -594,11 +596,12 @@ public abstract class PhysicsBaseEntity : IPhysicsEntity
 			ContactPoint = contactPoint
 		};
 	}
+	*/
 
-	public static MyVector GetContactPoint(PhysicsBaseEntity a, PhysicsBaseEntity b, MyVector normal)
+	public static MyVector GetContactPoint(PhysicsBaseEntity a, PhysicsBaseEntity b, MyVector normal, PhysicsContext cxt)
 	{
-		var aVertices = a.GetTransformedPoints();
-		var bVertices = b.GetTransformedPoints();
+		var aVertices = a.GetTransformedPoints(cxt);
+		var bVertices = b.GetTransformedPoints(cxt);
 
 		// Найдём вершину объекта A, которая ближе всех вдоль нормали к B
 		MyVector bestA = aVertices[0];
@@ -634,6 +637,4 @@ public abstract class PhysicsBaseEntity : IPhysicsEntity
 			(bestA.Y + bestB.Y) / 2f
 		);
 	}
-
-
 }
