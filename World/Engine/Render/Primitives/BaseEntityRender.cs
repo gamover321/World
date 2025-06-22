@@ -1,12 +1,13 @@
 ﻿using SkiaSharp;
 using World.Engine.My2dWorld;
 using World.Engine.My2dWorld.Primitives;
+using World.Engine.Primitives;
 
 namespace World.Engine.Render.Primitives;
 
 public interface IEntityRender
 {
-	void Render(SKCanvas canvas);
+	void Render(SKCanvas canvas, Camera2d camera2d);
 }
 
 public class BaseEntityRender : IEntityRender
@@ -18,40 +19,22 @@ public class BaseEntityRender : IEntityRender
 		this.entity = entity;
 	}
 
-	public virtual void Render(SKCanvas canvas)
+	public virtual void Render(SKCanvas canvas, Camera2d camera2d)
 	{
 		float? prevX = null;
 		float? prevY = null;
 
 		var transformedEdges = entity.GetTransformedPoints(PhysicsContext.Actual);
-		
-		foreach (var edge in transformedEdges)
+
+		var edgesToCamera = camera2d.WorldToScreen(transformedEdges, MyVector.Empty());
+
+		for (var i = 0; i < edgesToCamera.Length; i++)
 		{
-			if (prevX == null || prevY == null)
-			{
-				prevX = edge.X;
-				prevY = edge.Y;
-				continue;
-			}
+			var edge = edgesToCamera[i];
+			var nextEdge = edgesToCamera[(i + 1) % edgesToCamera.Length];
 
-			canvas.DrawLine(prevX.Value, prevY.Value, edge.X, edge.Y,
+			canvas.DrawLine(edge.X, edge.Y, nextEdge.X, nextEdge.Y,
 				new SKPaint { Color = SKColor.Parse("#000000") });
-
-			prevX = edge.X;
-			prevY = edge.Y;
 		}
-
-		// Замкнуть последнюю сторону
-		canvas.DrawLine(
-			transformedEdges.Last().X, transformedEdges.Last().Y,
-			transformedEdges.First().X, transformedEdges.First().Y,
-			new SKPaint { Color = SKColor.Parse("#000000") }
-		);
-
-		// Центр массы (центр фигуры)
-		//canvas.DrawCircle(entity.Position.X, entity.Position.Y, 5, new SKPaint
-		//{
-		//	Color = SKColor.Parse("#003366")
-		//});
 	}
 }

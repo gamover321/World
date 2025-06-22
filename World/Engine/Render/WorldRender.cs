@@ -1,149 +1,118 @@
 ﻿using SkiaSharp;
-using System.Diagnostics;
+using World.Engine.My2dWorld;
 using World.Engine.My2dWorld.Primitives;
 using World.Engine.Render.Primitives;
 
-namespace World.Engine.Render
+namespace World.Engine.Render;
+
+public class WorldRender
 {
-    public class WorldRender
-    {
-        /// <summary>
-        /// Кол-во желаемых кадров в секунду
-        /// </summary>
-        private static int _fps => 30;
+	/// <summary>
+	/// Кол-во желаемых кадров в секунду
+	/// </summary>
+	private static int _fps => 30;
 
-        private TimeSpan _frameTime = TimeSpan.FromMilliseconds((double)1000 / _fps);
-        private TimeSpan _nextFrameTime = TimeSpan.Zero;
-        private TimeSpan _frameRenderTime = TimeSpan.Zero;
+	private float _accumulator;
+	private float _fixedTimeStep;
 
-        private My2dWorld.PhysicsWorld _world;
-        private CancellationTokenSource _cancellationTokenSource;
-        private Stopwatch _stopwatch;
+	
+	private TimeSpan _frameRenderTime = TimeSpan.Zero;
 
-        private SKImage CurrentFrame { get; set; }
-       
+	private PhysicsWorld _world;
+	private Camera2d _camera;
+	private CancellationTokenSource _cancellationTokenSource;
+	private SKImage CurrentFrame { get; set; }
 
-        public Dictionary<PhysicsBaseEntity, BaseEntityRender> RenderDict = new();
 
-        public WorldRender(My2dWorld.PhysicsWorld world)
-        {
-            _world = world;
-            _stopwatch = new Stopwatch();
-        }
+	public bool IsPaused { get; private set; } = true;
+	public Dictionary<PhysicsBaseEntity, BaseEntityRender> RenderDict = new();
 
-        public void Start()
-        {
-            _cancellationTokenSource = new CancellationTokenSource();
+	public WorldRender(PhysicsWorld world, Camera2d camera2d, int fps = 60)
+	{
+		_world = world;
+		_camera = camera2d;
+		_fixedTimeStep = 1f / fps;
+	}
 
-            Task.Run(async () =>
-            {
-	            try
-	            {
-		            var stopwatch = new Stopwatch();
-		            stopwatch.Start();
+	public void UpdateWithVariableDelta(float deltaTime)
+	{
+		_accumulator += deltaTime;
+		while (_accumulator>=_fixedTimeStep)
+		{
+			CurrentFrame = RenderWorld();
+			_accumulator -= deltaTime;
+		}
+	}
 
-		            while (!_cancellationTokenSource.Token.IsCancellationRequested)
-		            {
-			            var frameWasUpdated = await Tick();
-			            if (frameWasUpdated)
-			            {
-				            _frameRenderTime = stopwatch.Elapsed;
-				            stopwatch.Restart();
-			            }
-		            }
-				}
-	            catch (Exception e)
-	            {
-		            Console.WriteLine(e);
-		            //throw;
-	            }
-                
-            }, _cancellationTokenSource.Token);
-        }
+	public void TogglePause()
+	{
+		IsPaused = !IsPaused;
+	}
 
-        public void ManualUpdate()
-        {
-            CurrentFrame = RenderWorld();
-        }
+	public void SetPause(bool paused)
+	{
+		IsPaused = paused;
+	}
 
-        public void Stop()
-        {
-            _cancellationTokenSource.Cancel();
-        }
 
-        public SKImage GetPicture()
-        {
-            if (CurrentFrame == null)
-            {
-                CurrentFrame = RenderWorld();
-            }
-            return CurrentFrame;
-        }
+	public void ManualUpdate()
+	{
+		CurrentFrame = RenderWorld();
+	}
 
-        public int GetFps()
-        {
-            return (int)(1000 / _frameRenderTime.TotalMilliseconds);
-        }
+	public SKImage GetPicture()
+	{
+		if (CurrentFrame == null)
+		{
+			CurrentFrame = RenderWorld();
+		}
+		return CurrentFrame;
+	}
 
-        #region Private methods
+	public int GetFps()
+	{
+		return (int)(1000 / _frameRenderTime.TotalMilliseconds);
+	}
 
-        private async Task<bool> Tick()
-        {
-            if (_nextFrameTime <= _stopwatch.Elapsed)
-            {
-                _stopwatch.Restart();
+	#region Private methods
 
-                CurrentFrame = RenderWorld();
+	private SKImage RenderWorld()
+	{
+		var imageInfo = new SKImageInfo(
+			width: _world.Width,
+			height: _world.Height,
+			colorType: SKColorType.Rgba8888,
+			alphaType: SKAlphaType.Premul);
 
-                var elapsed = _stopwatch.Elapsed;
-                var remains = _frameTime - elapsed;
+		var surface = SKSurface.Create(imageInfo);
 
-                _nextFrameTime = _stopwatch.Elapsed + remains;
+		var canvas = surface.Canvas;
 
-                return true;
-            }
+		canvas.Clear(SKColor.Parse("#FFFFFF"));
 
-            return false;
-        }
+		foreach (var worldEntity in _world.Entities)
+		{
+			var render = GetRender(worldEntity);
+			render.Render(canvas, _camera);
+		}
 
-        private SKImage RenderWorld()
-        {
-            var imageInfo = new SKImageInfo(
-                width: _world.Width,
-                height: _world.Height,
-                colorType: SKColorType.Rgba8888,
-                alphaType: SKAlphaType.Premul);
+		var image = surface.Snapshot();
 
-            var surface = SKSurface.Create(imageInfo);
+		return image;
+	}
 
-            var canvas = surface.Canvas;
+	public BaseEntityRender GetRender(PhysicsBaseEntity entity)
+	{
+		if (!RenderDict.ContainsKey(entity))
+		{
+			RenderDict.Add(entity, new TrailEntityRender(entity));
+		}
 
-            canvas.Clear(SKColor.Parse("#FFFFFF"));
-
-			foreach (var worldEntity in _world.Entities)
-            {
-                var render = GetRender(worldEntity);
-                render.Render(canvas);
-            }
-
-            var image = surface.Snapshot();
-
-            return image;
-        }
-
-        public BaseEntityRender GetRender(PhysicsBaseEntity entity)
-        {
-            if (!RenderDict.ContainsKey(entity))
-            {
-                RenderDict.Add(entity, new TrailEntityRender(entity));
-            }
-
-            return RenderDict[entity];
-        }
+		return RenderDict[entity];
+	}
 
         
 
-        #endregion
+	#endregion
 
-    }
 }

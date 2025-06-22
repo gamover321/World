@@ -15,6 +15,7 @@ namespace World
 	{
 		private PhysicsWorld _world;
 		private WorldRender _worldRender;
+		private Camera2d _camera;
 		private readonly PhysicsTimeManager _timeManager;
 		private readonly Timer _gameTimer;
 		private float _speed = 1f;
@@ -28,9 +29,11 @@ namespace World
 			_world = new PhysicsWorld(pictureBox1.Width, pictureBox1.Height);
 			_timeManager = new PhysicsTimeManager(_world);
 
-			_worldRender = new WorldRender(_world);
+			_camera = new Camera2d();
 
-			_worldRender.Start();
+			_worldRender = new WorldRender(_world, _camera);
+			_worldRender.SetPause(false);
+
 			_isRunning = true;
 
 			// Таймер для обновления игры
@@ -43,11 +46,12 @@ namespace World
 		{
 			float deltaTime = _gameTimer.Interval / 1000f * _speed; // Конвертируем в секунды
 			_timeManager.UpdateWithVariableDelta(deltaTime);
+
+			_worldRender.UpdateWithVariableDelta(deltaTime);
 		}
 
 		private void pictureBox1_Click(object sender, EventArgs e)
 		{
-
 			if (_isRunning)
 			{
 				//_world.Stop();
@@ -145,13 +149,42 @@ namespace World
 			{
 				_world.Update(1);
 			}
-
 		}
 
 		private void trackBar1_Scroll(object sender, EventArgs e)
 		{
 			TrackBar trackBar = (TrackBar)sender;
 			_speed = trackBar.Value;
+		}
+
+		private void buttonCameraUp_Click(object sender, EventArgs e)
+		{
+			_camera.Position += new MyVector(0, -50);
+		}
+
+		private void buttonCameraDown_Click(object sender, EventArgs e)
+		{
+			_camera.Position += new MyVector(0, 50);
+		}
+
+		private void buttonCameraLeft_Click(object sender, EventArgs e)
+		{
+			_camera.Position += new MyVector(-50, 0);
+		}
+
+		private void buttonCameraRight_Click(object sender, EventArgs e)
+		{
+			_camera.Position += new MyVector(50, 0);
+		}
+
+		private void cameraZoomTrackbar_Scroll(object sender, EventArgs e)
+		{
+			TrackBar trackBar = (TrackBar)sender;
+
+			var zoomMin = 0.5f;
+			var zoomMax = 2f;
+
+			_camera.Zoom = zoomMin + (trackBar.Value - trackBar.Minimum) * (zoomMax - zoomMin) / (trackBar.Maximum - trackBar.Minimum);
 		}
 	}
 }

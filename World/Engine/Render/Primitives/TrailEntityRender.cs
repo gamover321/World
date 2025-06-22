@@ -16,16 +16,16 @@ namespace World.Engine.Render.Primitives
             this.entity = entity;
         }
 
-        public override void Render(SKCanvas canvas)
+        public override void Render(SKCanvas canvas, Camera2d camera2d)
         {
-	        base.Render(canvas);
+	        base.Render(canvas, camera2d);
 
 			//RenderPrevPositions(canvas);
 			//RenderPrevCollisions(canvas);
 
 			//RenderCircleRadius(canvas);
 			//RenderAcceleration(canvas);
-			RenderVelocity(canvas);
+			//RenderVelocity(canvas);
 			//RenderPosition(canvas);
             //RenderNormals(canvas);
 

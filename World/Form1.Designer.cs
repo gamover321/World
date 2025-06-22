@@ -37,8 +37,14 @@
 			timer2 = new System.Windows.Forms.Timer(components);
 			trackBar1 = new TrackBar();
 			label1 = new Label();
+			buttonCameraLeft = new Button();
+			buttonCameraRight = new Button();
+			buttonCameraUp = new Button();
+			buttonCameraDown = new Button();
+			cameraZoomTrackbar = new TrackBar();
 			((System.ComponentModel.ISupportInitialize)pictureBox1).BeginInit();
 			((System.ComponentModel.ISupportInitialize)trackBar1).BeginInit();
+			((System.ComponentModel.ISupportInitialize)cameraZoomTrackbar).BeginInit();
 			SuspendLayout();
 			// 
 			// pictureBox1
@@ -111,11 +117,67 @@
 			label1.TabIndex = 5;
 			label1.Text = "Sim SPD";
 			// 
+			// buttonCameraLeft
+			// 
+			buttonCameraLeft.Location = new Point(1054, 457);
+			buttonCameraLeft.Name = "buttonCameraLeft";
+			buttonCameraLeft.Size = new Size(52, 29);
+			buttonCameraLeft.TabIndex = 6;
+			buttonCameraLeft.Text = "Left";
+			buttonCameraLeft.UseVisualStyleBackColor = true;
+			buttonCameraLeft.Click += buttonCameraLeft_Click;
+			// 
+			// buttonCameraRight
+			// 
+			buttonCameraRight.Location = new Point(1112, 457);
+			buttonCameraRight.Name = "buttonCameraRight";
+			buttonCameraRight.Size = new Size(52, 29);
+			buttonCameraRight.TabIndex = 7;
+			buttonCameraRight.Text = "Right";
+			buttonCameraRight.UseVisualStyleBackColor = true;
+			buttonCameraRight.Click += buttonCameraRight_Click;
+			// 
+			// buttonCameraUp
+			// 
+			buttonCameraUp.Location = new Point(1084, 422);
+			buttonCameraUp.Name = "buttonCameraUp";
+			buttonCameraUp.Size = new Size(52, 29);
+			buttonCameraUp.TabIndex = 8;
+			buttonCameraUp.Text = "Up";
+			buttonCameraUp.UseVisualStyleBackColor = true;
+			buttonCameraUp.Click += buttonCameraUp_Click;
+			// 
+			// buttonCameraDown
+			// 
+			buttonCameraDown.Location = new Point(1084, 492);
+			buttonCameraDown.Name = "buttonCameraDown";
+			buttonCameraDown.Size = new Size(52, 29);
+			buttonCameraDown.TabIndex = 9;
+			buttonCameraDown.Text = "Down";
+			buttonCameraDown.UseVisualStyleBackColor = true;
+			buttonCameraDown.Click += buttonCameraDown_Click;
+			// 
+			// cameraZoomTrackbar
+			// 
+			cameraZoomTrackbar.Location = new Point(1039, 360);
+			cameraZoomTrackbar.Maximum = 9;
+			cameraZoomTrackbar.Minimum = 1;
+			cameraZoomTrackbar.Name = "cameraZoomTrackbar";
+			cameraZoomTrackbar.Size = new Size(145, 56);
+			cameraZoomTrackbar.TabIndex = 10;
+			cameraZoomTrackbar.Value = 5;
+			cameraZoomTrackbar.Scroll += cameraZoomTrackbar_Scroll;
+			// 
 			// Form1
 			// 
 			AutoScaleDimensions = new SizeF(8F, 20F);
 			AutoScaleMode = AutoScaleMode.Font;
 			ClientSize = new Size(1196, 690);
+			Controls.Add(cameraZoomTrackbar);
+			Controls.Add(buttonCameraDown);
+			Controls.Add(buttonCameraUp);
+			Controls.Add(buttonCameraRight);
+			Controls.Add(buttonCameraLeft);
 			Controls.Add(label1);
 			Controls.Add(trackBar1);
 			Controls.Add(button3);
@@ -127,6 +189,7 @@
 			Load += Form1_Load;
 			((System.ComponentModel.ISupportInitialize)pictureBox1).EndInit();
 			((System.ComponentModel.ISupportInitialize)trackBar1).EndInit();
+			((System.ComponentModel.ISupportInitialize)cameraZoomTrackbar).EndInit();
 			ResumeLayout(false);
 			PerformLayout();
 		}
@@ -141,5 +204,10 @@
 		private System.Windows.Forms.Timer timer2;
 		private TrackBar trackBar1;
 		private Label label1;
+		private Button buttonCameraLeft;
+		private Button buttonCameraRight;
+		private Button buttonCameraUp;
+		private Button buttonCameraDown;
+		private TrackBar cameraZoomTrackbar;
 	}
 }
