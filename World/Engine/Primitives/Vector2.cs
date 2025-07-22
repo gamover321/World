@@ -53,11 +53,16 @@ public class Vector2
 
         var (sin, cos) = Math.SinCos(angleRad);
 
-        X1 = (float)((X1 - x) * cos - (Y1 - x) * sin + x);
-        Y1 = (float)((X1 - y) * sin + (Y1 - y) * cos + y);
+        var oldX1 = X1;
+        var oldY1 = Y1;
+        var oldX2 = X2;
+        var oldY2 = Y2;
 
-        X2 = (float)((X2-x) * cos - (Y2-x) * sin + x);
-        Y2 = (float)((X2-y) * sin + (Y2-y) * cos + y);
+        X1 = (float)((oldX1 - x) * cos - (oldY1 - y) * sin + x);
+        Y1 = (float)((oldX1 - x) * sin + (oldY1 - y) * cos + y);
+
+        X2 = (float)((oldX2 - x) * cos - (oldY2 - y) * sin + x);
+        Y2 = (float)((oldX2 - x) * sin + (oldY2 - y) * cos + y);
     }
 
     public static Vector2 Empty()
