@@ -25,7 +25,7 @@ namespace World.Engine.Render.Primitives
 
 			//RenderCircleRadius(canvas);
 			//RenderAcceleration(canvas);
-			//RenderVelocity(canvas);
+			RenderVelocity(canvas);
 			//RenderPosition(canvas);
             //RenderNormals(canvas);
 

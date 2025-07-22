@@ -42,6 +42,7 @@
 			buttonCameraUp = new Button();
 			buttonCameraDown = new Button();
 			cameraZoomTrackbar = new TrackBar();
+			label2 = new Label();
 			((System.ComponentModel.ISupportInitialize)pictureBox1).BeginInit();
 			((System.ComponentModel.ISupportInitialize)trackBar1).BeginInit();
 			((System.ComponentModel.ISupportInitialize)cameraZoomTrackbar).BeginInit();
@@ -96,6 +97,7 @@
 			// timer2
 			// 
 			timer2.Interval = 16;
+			timer2.Tick += timer2_Tick;
 			// 
 			// trackBar1
 			// 
@@ -139,9 +141,9 @@
 			// 
 			// buttonCameraUp
 			// 
-			buttonCameraUp.Location = new Point(1084, 422);
+			buttonCameraUp.Location = new Point(1079, 422);
 			buttonCameraUp.Name = "buttonCameraUp";
-			buttonCameraUp.Size = new Size(52, 29);
+			buttonCameraUp.Size = new Size(70, 29);
 			buttonCameraUp.TabIndex = 8;
 			buttonCameraUp.Text = "Up";
 			buttonCameraUp.UseVisualStyleBackColor = true;
@@ -149,9 +151,9 @@
 			// 
 			// buttonCameraDown
 			// 
-			buttonCameraDown.Location = new Point(1084, 492);
+			buttonCameraDown.Location = new Point(1079, 492);
 			buttonCameraDown.Name = "buttonCameraDown";
-			buttonCameraDown.Size = new Size(52, 29);
+			buttonCameraDown.Size = new Size(70, 29);
 			buttonCameraDown.TabIndex = 9;
 			buttonCameraDown.Text = "Down";
 			buttonCameraDown.UseVisualStyleBackColor = true;
@@ -160,7 +162,7 @@
 			// cameraZoomTrackbar
 			// 
 			cameraZoomTrackbar.Location = new Point(1039, 360);
-			cameraZoomTrackbar.Maximum = 9;
+			cameraZoomTrackbar.Maximum = 20;
 			cameraZoomTrackbar.Minimum = 1;
 			cameraZoomTrackbar.Name = "cameraZoomTrackbar";
 			cameraZoomTrackbar.Size = new Size(145, 56);
@@ -168,11 +170,21 @@
 			cameraZoomTrackbar.Value = 5;
 			cameraZoomTrackbar.Scroll += cameraZoomTrackbar_Scroll;
 			// 
+			// label2
+			// 
+			label2.AutoSize = true;
+			label2.Location = new Point(1084, 337);
+			label2.Name = "label2";
+			label2.Size = new Size(49, 20);
+			label2.TabIndex = 11;
+			label2.Text = "Zoom";
+			// 
 			// Form1
 			// 
 			AutoScaleDimensions = new SizeF(8F, 20F);
 			AutoScaleMode = AutoScaleMode.Font;
 			ClientSize = new Size(1196, 690);
+			Controls.Add(label2);
 			Controls.Add(cameraZoomTrackbar);
 			Controls.Add(buttonCameraDown);
 			Controls.Add(buttonCameraUp);
@@ -209,5 +221,6 @@
 		private Button buttonCameraUp;
 		private Button buttonCameraDown;
 		private TrackBar cameraZoomTrackbar;
+		private Label label2;
 	}
 }

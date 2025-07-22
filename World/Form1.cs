@@ -48,6 +48,15 @@ namespace World
 			_timeManager.UpdateWithVariableDelta(deltaTime);
 
 			_worldRender.UpdateWithVariableDelta(deltaTime);
+
+			var image = _worldRender.GetPicture();
+
+			using (SKData data = image.Encode())
+			using (System.IO.MemoryStream mStream = new System.IO.MemoryStream(data.ToArray()))
+			{
+				pictureBox1.Image?.Dispose();
+				pictureBox1.Image = new Bitmap(mStream, false);
+			}
 		}
 
 		private void pictureBox1_Click(object sender, EventArgs e)
@@ -62,7 +71,6 @@ namespace World
 				//_world.Start();
 				_isRunning = true;
 			}
-
 		}
 
 		private void timer1_Tick(object sender, EventArgs e)
@@ -74,16 +82,7 @@ namespace World
 			{
 				MoveToCursor(mouseVec, entity);
 			}
-
-			var image = _worldRender.GetPicture();
-
-			using (SKData data = image.Encode())
-			using (System.IO.MemoryStream mStream = new System.IO.MemoryStream(data.ToArray()))
-			{
-				pictureBox1.Image?.Dispose();
-				pictureBox1.Image = new Bitmap(mStream, false);
-			}
-
+			
 			Text = PrepareCaption();
 		}
 
@@ -185,6 +184,11 @@ namespace World
 			var zoomMax = 2f;
 
 			_camera.Zoom = zoomMin + (trackBar.Value - trackBar.Minimum) * (zoomMax - zoomMin) / (trackBar.Maximum - trackBar.Minimum);
+		}
+
+		private void timer2_Tick(object sender, EventArgs e)
+		{
+
 		}
 	}
 }

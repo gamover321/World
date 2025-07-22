@@ -49,7 +49,7 @@ public class PhysicsWorld
 		};
 		//xr.Velocity = new MyVector(-1, 0);
 
-		var y = new PhysicsRectangle(400, 390, 50, 150, 10);
+		var y = new PhysicsRectangle(500, 470, 50, 50, 30);
 		y.Name = "y";
 		
 		//y.Velocity = new MyVector(-1, 0);
@@ -70,24 +70,25 @@ public class PhysicsWorld
 			bullet.Name = $"bullet-{i}";
 			bullet.Velocity = new MyVector(5+i, -4f+i*0.2f);
 
-			Entities.Add(bullet);
+			//Entities.Add(bullet);
 		}
 
-		
+		var bottom = new PhysicsRectangle(-200, 700, 3500, 50, 0);
+		bottom.Name = "bottom";
+		Entities.Add(bottom);
 
-		var player = new PhysicsRectangle(50, 50, 25, 100, 5);
-		player.Name = "player";
+		var pentagon = new PhysicsStar(600, 400, 100, 100, 1);
+		Entities.Add(pentagon);
 
-		Entities.Add(xl);
+		//Entities.Add(xl);
 		Entities.Add(xr);
 		Entities.Add(y);
-		Entities.Add(z);
-		Entities.Add(top);
+		//Entities.Add(z);
+		//Entities.Add(top);
+		
 		
 
-		Entities.Add(player);
-
-		//AddCustomForce("gravity", new MyVector(0, 0.02f));
+		AddCustomForce("gravity", new MyVector(0, 1.02f));
 
 
 		/*
